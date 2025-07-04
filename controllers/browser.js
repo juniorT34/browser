@@ -1,5 +1,4 @@
 const docker = require('../services/docker');
-const { registerSession, unregisterSession } = require('../index');
 const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE;
 
 // Store timers for cleanup
