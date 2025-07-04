@@ -91,7 +91,8 @@ exports.startSession = async (req, res) => {
       gui_url: guiUrl,
       containerId: container.id,
       starting_time,
-      expires_in
+      expires_in,
+      container_port: port
     });
   } catch (err) {
     console.error('Error starting Chromium container:', err);

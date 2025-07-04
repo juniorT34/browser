@@ -24,8 +24,8 @@ function proxySession() {
       return `http://127.0.0.1:${port}`;
     },
     pathRewrite: function (path, req) {
-      const sessionId = req.params.sessionId;
-      return path.replace(`/session/${sessionId}`, '');
+      // Remove /session/:sessionId from the start of the path
+      return path.replace(/^\/session\/[^\/]+/, '');
     },
     onProxyReq: function (proxyReq, req, res) {
       const sessionId = req.params.sessionId;
