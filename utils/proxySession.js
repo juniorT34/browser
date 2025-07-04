@@ -13,19 +13,29 @@ function unregisterSession(sessionId) {
 
 // Middleware to proxy /session/:sessionId/* to the correct local port
 function proxySession() {
-  return (req, res, next) => {
-    const sessionId = req.params.sessionId;
-    const port = sessionPortMap[sessionId];
-    if (!port) return res.status(404).send('Session not found');
-    return createProxyMiddleware({
-      target: `http://127.0.0.1:${port}`,
-      changeOrigin: true,
-      ws: true,
-      pathRewrite: {
-        [`^/session/${sessionId}`]: '',
-      },
-    })(req, res, next);
-  };
+  return createProxyMiddleware({
+    target: 'http://127.0.0.1', // dummy, will be rewritten dynamically
+    changeOrigin: true,
+    ws: true,
+    router: function (req) {
+      const sessionId = req.params.sessionId;
+      const port = sessionPortMap[sessionId];
+      if (!port) return null;
+      return `http://127.0.0.1:${port}`;
+    },
+    pathRewrite: function (path, req) {
+      const sessionId = req.params.sessionId;
+      return path.replace(`/session/${sessionId}`, '');
+    },
+    onProxyReq: function (proxyReq, req, res) {
+      const sessionId = req.params.sessionId;
+      const port = sessionPortMap[sessionId];
+      if (!port) {
+        res.statusCode = 404;
+        res.end('Session not found');
+      }
+    }
+  });
 }
 
 module.exports = {

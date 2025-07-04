@@ -5,6 +5,7 @@ const auth = require('./middlewares/auth');
 const { sign } = require('./utils/jwt');
 const browserRouter = require('./routes/browser');
 const { proxySession, registerSession, unregisterSession } = require('./utils/proxySession');
+require('events').EventEmitter.defaultMaxListeners = 50;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
