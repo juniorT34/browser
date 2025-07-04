@@ -32,6 +32,11 @@ app.get('/api/protected', auth, (req, res) => {
   res.json({ message: 'Protected content', user: req.user });
 });
 
+// Root welcome route
+app.get('/', (req, res) => {
+  res.json({ message: 'Disposable services API by juniorT34' });
+});
+
 app.use('/api/browser', browserRouter);
 
 app.listen(PORT, () => {
