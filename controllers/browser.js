@@ -50,7 +50,9 @@ exports.startSession = async (req, res) => {
     }
     const port = portBindings[0].HostPort;
     const sessionId = container.id;
-    const url = `http://localhost:${port}`;
+    // Use PUBLIC_HOST env var for public-facing URL
+    const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
+    const url = `http://${PUBLIC_HOST}:${port}`;
     const starting_time = new Date().toISOString();
     const expires_at = new Date(Date.now() + 300000).toISOString();
 
@@ -174,7 +176,8 @@ exports.listActiveSessions = async (req, res) => {
         const data = await container.inspect();
         // Find mapped port for url
         const portBindings = data.NetworkSettings.Ports['3000/tcp'];
-        const url = portBindings && portBindings[0] && portBindings[0].HostPort ? `http://localhost:${portBindings[0].HostPort}` : undefined;
+        const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
+        const url = portBindings && portBindings[0] && portBindings[0].HostPort ? `http://${PUBLIC_HOST}:${portBindings[0].HostPort}` : undefined;
         info.url = url;
         info.state = data.State.Status;
         info.starting_time = data.State.StartedAt;
