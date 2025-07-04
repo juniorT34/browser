@@ -1,0 +1,36 @@
+version: '3.9'
+services:
+  # All services removed for local development
+
+  backend:
+    build:
+      context: ..
+      dockerfile: browser/Dockerfile
+    container_name: browser-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    volumes:
+      - ./browser:/usr/src/app
+    command: npm start
+  redis:
+    image: redis:7-alpine
+    container_name: browser-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: browser-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+volumes:
+  redis-data: 
