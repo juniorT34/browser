@@ -4,6 +4,7 @@ const path = require('path');
 const auth = require('./middlewares/auth');
 const { sign } = require('./utils/jwt');
 const browserRouter = require('./routes/browser');
+const { proxySession, registerSession, unregisterSession } = require('./utils/proxySession');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,6 +40,12 @@ app.get('/', (req, res) => {
 
 app.use('/api/browser', browserRouter);
 
+// Proxy session traffic to the correct Chromium container
+app.use('/session/:sessionId', proxySession());
+
 app.listen(PORT, () => {
   console.log(`HTTP server running on http://localhost:${PORT}`);
-}); 
+});
+
+// Export for use in other modules (e.g., browserRouter)
+module.exports = { registerSession, unregisterSession }; 

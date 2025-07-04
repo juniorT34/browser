@@ -1,4 +1,5 @@
 const docker = require('../services/docker');
+const { registerSession, unregisterSession } = require('../index');
 const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE;
 
 // Store timers for cleanup
@@ -52,7 +53,11 @@ exports.startSession = async (req, res) => {
     const sessionId = container.id;
     // Use PUBLIC_HOST env var for public-facing URL
     const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
-    const url = `http://${PUBLIC_HOST}:${port}`;
+    // Register the session-port mapping for proxying
+    registerSession(sessionId, port);
+    // Return a proxied URL
+    const baseUrl = `https://${PUBLIC_HOST}`;
+    const guiUrl = `${baseUrl}/session/${sessionId}/`;
     const starting_time = new Date().toISOString();
     const expires_at = new Date(Date.now() + 300000).toISOString();
 
@@ -82,7 +87,8 @@ exports.startSession = async (req, res) => {
       message: 'Session started',
       sessionId,
       userId,
-      url,
+      api_base_url: baseUrl,
+      gui_url: guiUrl,
       containerId: container.id,
       starting_time,
       expires_in
@@ -102,6 +108,7 @@ exports.stopSession = async (req, res) => {
     const container = docker.getContainer(containerId);
     await container.stop();
     await container.remove();
+    unregisterSession(containerId);
     res.json({ message: 'Session stopped and container removed', containerId });
   } catch (err) {
     console.error('Error stopping/removing container:', err);
