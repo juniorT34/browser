@@ -51,6 +51,17 @@ fi
 
 echo -e "${GREEN}✓ Docker and Docker Compose V2 are available${NC}"
 
+# Check if we're in the correct directory (should have Dockerfile and docker-compose.production.yml)
+if [ ! -f "Dockerfile" ] || [ ! -f "docker-compose.production.yml" ]; then
+    echo -e "${RED}❌ Error: This script must be run from the browser directory${NC}"
+    echo "Current directory: $(pwd)"
+    echo "Expected files: Dockerfile, docker-compose.production.yml"
+    echo "Please run: cd browser && ./deploy-production.sh"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Running from correct directory${NC}"
+
 # Create necessary directories
 echo -e "${BLUE}Creating directories...${NC}"
 mkdir -p swag/config

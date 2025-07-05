@@ -41,13 +41,13 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./Dockerfile
     container_name: browser-backend
     environment:
       - NODE_ENV=production
       - PORT=5000
       - JWT_SECRET=${JWT_SECRET}
-      - CHROMIUM_IMAGE=lscr.io/linuxserver/chromium:latest
+      - CHROMIUM_IMAGE=junior039/dispo-chromium:latest
       - PUBLIC_HOST=albizblog.online
       - REDIS_URL=redis://redis:6379
       - SESSION_TIMEOUT=300
@@ -80,7 +80,7 @@ services:
   cleanup-worker:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./Dockerfile
     container_name: browser-cleanup-worker
     environment:
       - NODE_ENV=production
