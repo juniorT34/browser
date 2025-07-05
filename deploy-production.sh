@@ -51,14 +51,21 @@ fi
 
 echo -e "${GREEN}✓ Docker and Docker Compose V2 are available${NC}"
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Check if we're in the correct directory (should have Dockerfile and docker-compose.production.yml)
-if [ ! -f "Dockerfile" ] || [ ! -f "docker-compose.production.yml" ]; then
-    echo -e "${RED}❌ Error: This script must be run from the browser directory${NC}"
-    echo "Current directory: $(pwd)"
+if [ ! -f "${SCRIPT_DIR}/Dockerfile" ] || [ ! -f "${SCRIPT_DIR}/docker-compose.production.yml" ]; then
+    echo -e "${RED}❌ Error: Required files not found in script directory${NC}"
+    echo "Script directory: ${SCRIPT_DIR}"
     echo "Expected files: Dockerfile, docker-compose.production.yml"
-    echo "Please run: cd browser && ./deploy-production.sh"
+    echo "Please ensure these files exist in the same directory as this script"
     exit 1
 fi
+
+# Change to the script directory to ensure we're working from the right location
+cd "${SCRIPT_DIR}"
+echo -e "${GREEN}✓ Working from script directory: ${SCRIPT_DIR}${NC}"
 
 echo -e "${GREEN}✓ Running from correct directory${NC}"
 

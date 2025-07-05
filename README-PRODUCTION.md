@@ -41,13 +41,14 @@ The deployment script will automatically:
 ### 2. Deploy the Service
 
 ```bash
-# Navigate to the browser directory
-cd browser
-
 # Make the deployment script executable
-chmod +x deploy-production.sh
+chmod +x browser/deploy-production.sh
 
-# Run the deployment script
+# Run the deployment script (can be run from anywhere)
+./browser/deploy-production.sh
+
+# Or navigate to the browser directory first
+cd browser
 ./deploy-production.sh
 ```
 
