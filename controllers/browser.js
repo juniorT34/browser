@@ -1,5 +1,6 @@
 const docker = require('../services/docker');
-const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE || 'junior039/dispo-chromium:latest';
+const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
+const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE || 'junior039/disposable-browser-chromium:latest';
 const { registerSession, unregisterSession } = require('../utils/proxySession');
 
 // Store timers for cleanup
@@ -52,22 +53,26 @@ exports.startSession = async (req, res) => {
 
     // Create the container with timeout
     console.log('Creating container...');
+    const containerName = `chromium_${userId}_${Date.now()}`;
     const container = await Promise.race([
       docker.createContainer({
         Image: CHROMIUM_IMAGE,
-        name: `chromium_${userId}_${Date.now()}`,
+        name: containerName,
         Env: [
           'PUID=1000',
           'PGID=1000',
           'TZ=Etc/UTC'
         ],
+        ExposedPorts: {
+          '3001/tcp': {}
+        },
         HostConfig: {
-          PortBindings: {
-            '3000/tcp': [{ HostPort: '', HostIP: '0.0.0.0' }], // Bind to all interfaces
-            '3001/tcp': [{ HostPort: '', HostIP: '0.0.0.0' }]  // Bind to all interfaces
-          },
+          NetworkMode: 'browser_network',
           SecurityOpt: ['seccomp=unconfined'],
-          ShmSize: 1024 * 1024 * 1024 // 1GB
+          ShmSize: 1024 * 1024 * 1024, // 1GB
+          PortBindings: {
+            '3001/tcp': [{ HostPort: '', HostIP: '0.0.0.0' }]
+          }
         }
       }),
       new Promise((_, reject) => 
@@ -88,31 +93,31 @@ exports.startSession = async (req, res) => {
     
     console.log('Container started successfully');
     
-    // Wait for container to be ready and get port mapping
+    // Wait for container to be ready
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     const data = await container.inspect();
-    const httpPortBindings = data.NetworkSettings.Ports['3000/tcp'];
-    const httpsPortBindings = data.NetworkSettings.Ports['3001/tcp'];
-    
-    if (!httpPortBindings || !httpPortBindings[0] || !httpPortBindings[0].HostPort) {
-      return res.status(500).json({ error: 'Chromium container did not expose a host port for 3000/tcp' });
-    }
-    
-    const httpPort = httpPortBindings[0].HostPort;
-    const httpsPort = httpsPortBindings && httpsPortBindings[0] ? httpsPortBindings[0].HostPort : null;
     const sessionId = container.id;
-    console.log(`Container ${sessionId} mapped to HTTP port ${httpPort} and HTTPS port ${httpsPort}`);
+    const containerIp = data.NetworkSettings.Networks && data.NetworkSettings.Networks['browser_network'] ? data.NetworkSettings.Networks['browser_network'].IPAddress : null;
+    let directHttpsUrl = null;
+    let publishedPort = null;
+    if (data.NetworkSettings.Ports && data.NetworkSettings.Ports['3001/tcp'] && data.NetworkSettings.Ports['3001/tcp'][0]) {
+      publishedPort = data.NetworkSettings.Ports['3001/tcp'][0].HostPort;
+      directHttpsUrl = `https://${PUBLIC_HOST}:${publishedPort}`;
+    }
+    console.log(`Container ${sessionId} started with name ${containerName} and IP ${containerIp}`);
     
+    if (!containerIp) {
+      return res.status(500).json({ error: 'Could not determine container IP on browser_network' });
+    }
+    // Register the session with the container name (preferred for DNS resolution)
+    console.log(`Registering session: ${sessionId} -> container name ${containerName}`);
+    await registerSession(sessionId, containerName);
+
     // Use PUBLIC_HOST env var for public-facing URL
-    const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
-    // Register the session-port mapping for proxying (use HTTP port)
-    registerSession(sessionId, httpPort);
     // Return both proxied and direct URLs for testing
     const baseUrl = `https://${PUBLIC_HOST}`;
     const guiUrl = `${baseUrl}/session/${sessionId}/`;
-    const directHttpUrl = `http://${PUBLIC_HOST}:${httpPort}`;
-    const directHttpsUrl = httpsPort ? `https://${PUBLIC_HOST}:${httpsPort}` : null;
     const starting_time = new Date().toISOString();
     const expires_at = new Date(Date.now() + 300000).toISOString();
 
@@ -146,16 +151,16 @@ exports.startSession = async (req, res) => {
       userId,
       api_base_url: baseUrl,
       gui_url: guiUrl,
-      direct_http_url: directHttpUrl,
       direct_https_url: directHttpsUrl,
       containerId: container.id,
+      containerName,
+      containerIp,
+      publishedPort,
       starting_time,
       expires_in,
-      http_port: httpPort,
-      https_port: httpsPort,
       usage_notes: {
-        recommended: "Use direct_http_url to avoid certificate issues",
-        https_warning: "HTTPS may be blocked by HSTS due to self-signed certificate"
+        recommended: "Use gui_url for secure access via reverse proxy (no browser warnings)",
+        direct: "Direct access is for debugging only and will show a browser privacy warning."
       }
     });
   } catch (err) {
@@ -177,7 +182,7 @@ exports.stopSession = async (req, res) => {
     const container = docker.getContainer(containerId);
     await container.stop();
     await container.remove();
-    unregisterSession(containerId);
+    await unregisterSession(containerId);
     res.json({ message: 'Session stopped and container removed', containerId });
   } catch (err) {
     console.error('Error stopping/removing container:', err);
@@ -252,7 +257,6 @@ exports.listActiveSessions = async (req, res) => {
         const data = await container.inspect();
         // Find mapped port for url
         const portBindings = data.NetworkSettings.Ports['3000/tcp'];
-        const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
         const url = portBindings && portBindings[0] && portBindings[0].HostPort ? `http://${PUBLIC_HOST}:${portBindings[0].HostPort}` : undefined;
         info.url = url;
         info.state = data.State.Status;

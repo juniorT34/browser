@@ -1,16 +1,21 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const { getSession, registerSession: redisRegisterSession, unregisterSession: redisUnregisterSession, getAllSessions } = require('../services/redis');
 
-// In-memory sessionId -> port mapping (replace with Redis for production)
+const DOCKER_GATEWAY = process.env.DOCKER_GATEWAY || '172.17.0.1';
+
+// In-memory sessionId -> port mapping (cache)
 const sessionPortMap = {};
 
-function registerSession(sessionId, port) {
+async function registerSession(sessionId, port) {
   sessionPortMap[sessionId] = port;
+  await redisRegisterSession(sessionId, { port });
   console.log(`Session registered: ${sessionId} -> port ${port}`);
   console.log('Current sessions:', Object.keys(sessionPortMap));
 }
 
-function unregisterSession(sessionId) {
+async function unregisterSession(sessionId) {
   delete sessionPortMap[sessionId];
+  await redisUnregisterSession(sessionId);
   console.log(`Session unregistered: ${sessionId}`);
   console.log('Current sessions:', Object.keys(sessionPortMap));
 }
@@ -18,44 +23,41 @@ function unregisterSession(sessionId) {
 // Middleware to proxy /session/:sessionId/* to the correct local port
 function proxySession() {
   return createProxyMiddleware({
-    target: 'http://127.0.0.1', // dummy, will be rewritten dynamically
+    target: 'https://127.0.0.1', // dummy, will be rewritten dynamically
     changeOrigin: true,
     ws: true,
-    router: function (req) {
+    secure: false, // allow self-signed certs from Chromium containers
+    router: async function (req) {
       const sessionId = req.params.sessionId;
-      const port = sessionPortMap[sessionId];
-      
-      console.log(`=== PROXY DEBUG ===`);
-      console.log(`Request URL: ${req.url}`);
-      console.log(`Request path: ${req.path}`);
-      console.log(`Session ID from URL: ${sessionId}`);
-      console.log(`Available sessions:`, Object.keys(sessionPortMap));
-      console.log(`Session port map:`, sessionPortMap);
-      console.log(`Port for session ${sessionId}:`, port);
-      
-      if (!port) {
-        console.log(`❌ Session ${sessionId} not found in sessionPortMap`);
-        console.log(`Available session IDs:`, Object.keys(sessionPortMap));
+      let containerName = sessionPortMap[sessionId];
+      if (!containerName) {
+        // Try Redis
+        const session = await getSession(sessionId);
+        if (session && session.port) {
+          containerName = session.port;
+          sessionPortMap[sessionId] = containerName; // cache for future
+        }
+      }
+      if (!containerName) {
         return null;
       }
-      
-      const target = `http://127.0.0.1:${port}`;
-      console.log(`✅ Routing to: ${target}`);
-      console.log(`=== END PROXY DEBUG ===`);
-      return target;
+      return `https://${containerName}:3001`;
     },
     pathRewrite: function (path, req) {
-      // Remove /session/:sessionId from the start of the path
       const rewrittenPath = path.replace(/^\/session\/[^\/]+/, '');
-      console.log(`Path rewrite: ${path} -> ${rewrittenPath}`);
       return rewrittenPath;
     },
-    onProxyReq: function (proxyReq, req, res) {
+    onProxyReq: async function (proxyReq, req, res) {
       const sessionId = req.params.sessionId;
-      const port = sessionPortMap[sessionId];
-      
-      if (!port) {
-        console.log(`Session ${sessionId} not found, returning 404`);
+      let containerName = sessionPortMap[sessionId];
+      if (!containerName) {
+        const session = await getSession(sessionId);
+        if (session && session.port) {
+          containerName = session.port;
+          sessionPortMap[sessionId] = containerName;
+        }
+      }
+      if (!containerName) {
         res.statusCode = 404;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({
@@ -66,11 +68,8 @@ function proxySession() {
         }));
         return;
       }
-      
-      console.log(`Proxying request for session ${sessionId} to port ${port}`);
     },
     onError: function (err, req, res) {
-      console.error('Proxy error:', err);
       res.statusCode = 502;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({
@@ -82,11 +81,11 @@ function proxySession() {
   });
 }
 
-// Debug function to list all active sessions
-function listActiveSessions() {
-  return Object.keys(sessionPortMap).map(sessionId => ({
+async function listActiveSessions() {
+  const sessions = await getAllSessions();
+  return Object.keys(sessions).map(sessionId => ({
     sessionId,
-    port: sessionPortMap[sessionId]
+    port: sessions[sessionId].port
   }));
 }
 

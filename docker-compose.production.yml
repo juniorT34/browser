@@ -1,10 +1,6 @@
-
-
 networks:
-  swag_network:
-    external: true
   browser_network:
-    driver: bridge
+    external: true
 
 services:
   # SWAG - Reverse Proxy with SSL
@@ -26,12 +22,11 @@ services:
       - MAX_LOG_SIZE=10m
     volumes:
       - ./swag/config:/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "80:80"
       - "443:443"
     networks:
-      - swag_network
       - browser_network
     restart: unless-stopped
     labels:
@@ -46,6 +41,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
+      - PGID=996
       - JWT_SECRET=${JWT_SECRET}
       - CHROMIUM_IMAGE=junior039/dispo-chromium:latest
       - PUBLIC_HOST=albizblog.online
@@ -53,7 +49,7 @@ services:
       - SESSION_TIMEOUT=300
       - EXTEND_DURATION=300
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/usr/src/app/logs
     networks:
       - browser_network
@@ -87,7 +83,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - CLEANUP_INTERVAL=60000
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - browser_network
     depends_on:
