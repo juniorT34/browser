@@ -1,0 +1,102 @@
+version: '3.9'
+
+networks:
+  swag_network:
+    external: true
+  browser_network:
+    driver: bridge
+
+services:
+  # SWAG - Reverse Proxy with SSL
+  swag:
+    image: lscr.io/linuxserver/swag:latest
+    container_name: swag
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - URL=albizblog.online
+      - SUBDOMAINS=wildcard
+      - VALIDATION=dns
+      - DNSPLUGIN=cloudflare
+      - EMAIL=${EMAIL:-jj1982268@gmail.com}
+      - DOCKER_MODS=linuxserver/mods:swag-auto-reload
+      - MAX_LOG_SIZE=10m
+    volumes:
+      - ./swag/config:/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - swag_network
+      - browser_network
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: browser-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - JWT_SECRET=${JWT_SECRET}
+      - CHROMIUM_IMAGE=lscr.io/linuxserver/chromium:latest
+      - PUBLIC_HOST=albizblog.online
+      - REDIS_URL=redis://redis:6379
+      - SESSION_TIMEOUT=300
+      - EXTEND_DURATION=300
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs:/usr/src/app/logs
+    networks:
+      - browser_network
+    depends_on:
+      - redis
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Redis for Session Management
+  redis:
+    image: redis:7-alpine
+    container_name: browser-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - browser_network
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Session Cleanup Worker
+  cleanup-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: browser-cleanup-worker
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - CLEANUP_INTERVAL=60000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - browser_network
+    depends_on:
+      - redis
+    restart: unless-stopped
+    command: node cleanup-worker.js
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+volumes:
+  redis-data:
+    driver: local 
