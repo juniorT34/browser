@@ -1,5 +1,5 @@
 const docker = require('../services/docker');
-const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE;
+const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE || 'junior039/dispo-chromium:latest';
 const { registerSession, unregisterSession } = require('../utils/proxySession');
 
 // Store timers for cleanup
@@ -10,47 +10,97 @@ exports.startSession = async (req, res) => {
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
   }
+  
+  console.log(`Starting Chromium session for user: ${userId} with image: ${CHROMIUM_IMAGE}`);
+  
   try {
-    // Pull the image if not present
-    await new Promise((resolve, reject) => {
-      docker.pull(CHROMIUM_IMAGE, (err, stream) => {
-        if (err) return reject(err);
-        docker.modem.followProgress(stream, (err, output) => {
-          if (err) return reject(err);
-          resolve(output);
+    // Check if image exists locally first
+    let imageExists = false;
+    try {
+      const images = await docker.listImages();
+      imageExists = images.some(img => 
+        img.RepoTags && img.RepoTags.some(tag => tag === CHROMIUM_IMAGE)
+      );
+    } catch (err) {
+      console.warn('Could not check local images:', err.message);
+    }
+
+    // Only pull if image doesn't exist locally
+    if (!imageExists) {
+      console.log(`Image ${CHROMIUM_IMAGE} not found locally, pulling...`);
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Docker pull timeout after 60 seconds'));
+        }, 60000);
+        
+        docker.pull(CHROMIUM_IMAGE, (err, stream) => {
+          if (err) {
+            clearTimeout(timeout);
+            return reject(err);
+          }
+          docker.modem.followProgress(stream, (err, output) => {
+            clearTimeout(timeout);
+            if (err) return reject(err);
+            console.log('Image pull completed');
+            resolve(output);
+          });
         });
       });
-    });
+    } else {
+      console.log(`Using local image: ${CHROMIUM_IMAGE}`);
+    }
 
-    // Create the container
-    const container = await docker.createContainer({
-      Image: CHROMIUM_IMAGE,
-      name: `chromium_${userId}_${Date.now()}`,
-      Env: [
-        'PUID=1000',
-        'PGID=1000',
-        'TZ=Etc/UTC'
-      ],
-      HostConfig: {
-        PortBindings: {
-          '3000/tcp': [{ HostPort: '' }], // Let Docker assign a random port
-          '3001/tcp': [{ HostPort: '' }]
-        },
-        SecurityOpt: ['seccomp=unconfined'],
-        ShmSize: 1024 * 1024 * 1024 // 1GB
-      }
-    });
+    // Create the container with timeout
+    console.log('Creating container...');
+    const container = await Promise.race([
+      docker.createContainer({
+        Image: CHROMIUM_IMAGE,
+        name: `chromium_${userId}_${Date.now()}`,
+        Env: [
+          'PUID=1000',
+          'PGID=1000',
+          'TZ=Etc/UTC'
+        ],
+        HostConfig: {
+          PortBindings: {
+            '3000/tcp': [{ HostPort: '' }], // Let Docker assign a random port
+            '3001/tcp': [{ HostPort: '' }]
+          },
+          SecurityOpt: ['seccomp=unconfined'],
+          ShmSize: 1024 * 1024 * 1024 // 1GB
+        }
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Container creation timeout after 30 seconds')), 30000)
+      )
+    ]);
 
-    await container.start();
-    // Wait 1 second for Docker to finish port mapping
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log(`Container created: ${container.id}`);
+    
+    // Start the container with timeout
+    console.log('Starting container...');
+    await Promise.race([
+      container.start(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Container start timeout after 60 seconds')), 60000)
+      )
+    ]);
+    
+    console.log('Container started successfully');
+    
+    // Wait for container to be ready and get port mapping
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     const data = await container.inspect();
     const portBindings = data.NetworkSettings.Ports['3000/tcp'];
     if (!portBindings || !portBindings[0] || !portBindings[0].HostPort) {
       return res.status(500).json({ error: 'Chromium container did not expose a host port for 3000/tcp' });
     }
+    
     const port = portBindings[0].HostPort;
     const sessionId = container.id;
+    console.log(`Container ${sessionId} mapped to port ${port}`);
+    
     // Use PUBLIC_HOST env var for public-facing URL
     const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
     // Register the session-port mapping for proxying
@@ -83,6 +133,8 @@ exports.startSession = async (req, res) => {
 
     const expires_in = Math.floor((new Date(expires_at).getTime() - Date.now()) / 1000);
 
+    console.log(`Session started successfully: ${sessionId} -> ${guiUrl}`);
+
     res.json({
       message: 'Session started',
       sessionId,
@@ -96,7 +148,11 @@ exports.startSession = async (req, res) => {
     });
   } catch (err) {
     console.error('Error starting Chromium container:', err);
-    res.status(500).json({ error: 'Failed to start Chromium session', details: err.message });
+    res.status(500).json({ 
+      error: 'Failed to start Chromium session', 
+      details: err.message,
+      image: CHROMIUM_IMAGE
+    });
   }
 };
 

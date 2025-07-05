@@ -4,7 +4,7 @@ const path = require('path');
 const auth = require('./middlewares/auth');
 const { sign } = require('./utils/jwt');
 const browserRouter = require('./routes/browser');
-const { proxySession, registerSession, unregisterSession } = require('./utils/proxySession');
+const { proxySession, registerSession, unregisterSession, listActiveSessions } = require('./utils/proxySession');
 require('events').EventEmitter.defaultMaxListeners = 50;
 
 const app = express();
@@ -15,6 +15,16 @@ app.use(express.json());
 // Health check endpoint (unprotected)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Debug endpoint to check active sessions (unprotected)
+app.get('/api/debug/sessions', (req, res) => {
+  const activeSessions = listActiveSessions();
+  res.json({
+    activeSessions,
+    totalSessions: activeSessions.length,
+    sessionIds: Object.keys(require('./utils/proxySession').sessionPortMap)
+  });
 });
 
 // Dev route to generate a test JWT
