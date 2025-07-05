@@ -43,13 +43,13 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
-# Check if Docker Compose is available
-if ! command -v docker-compose &> /dev/null; then
-    echo -e "${RED}Docker Compose is not installed. Please install Docker Compose first.${NC}"
+# Check if Docker Compose V2 is available
+if ! docker compose version &> /dev/null; then
+    echo -e "${RED}Docker Compose V2 is not available. Please install Docker Compose V2.${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Docker and Docker Compose are available${NC}"
+echo -e "${GREEN}✓ Docker and Docker Compose V2 are available${NC}"
 
 # Create necessary directories
 echo -e "${BLUE}Creating directories...${NC}"
@@ -76,31 +76,23 @@ URL=${DOMAIN}
 SUBDOMAINS=wildcard
 VALIDATION=dns
 DNSPLUGIN=cloudflare
-EMAIL=${EMAIL:-admin@${DOMAIN}}
+EMAIL=jj1982268@gmail.com
 EOF
 
 echo -e "${GREEN}✓ Environment file created${NC}"
 
-# Check for Cloudflare API token
-echo -e "${BLUE}Checking Cloudflare configuration...${NC}"
+# Create Cloudflare configuration if it doesn't exist
+echo -e "${BLUE}Setting up Cloudflare configuration...${NC}"
+mkdir -p swag/config/dns-conf
 if [ ! -f "swag/config/dns-conf/cloudflare.ini" ]; then
-    echo -e "${YELLOW}⚠ Cloudflare configuration file not found. Creating template...${NC}"
-    echo "Please edit swag/config/dns-conf/cloudflare.ini and add your Cloudflare API token"
-    echo "Then restart the deployment script."
-    exit 1
+    cat > swag/config/dns-conf/cloudflare.ini << EOF
+# Cloudflare API credentials for SWAG DNS validation
+dns_cloudflare_api_token = fNDzHyWd9zndQMjghXypW4bX6ZCGowsaof3q30cH
+EOF
+    echo -e "${GREEN}✓ Cloudflare configuration created${NC}"
+else
+    echo -e "${GREEN}✓ Cloudflare configuration already exists${NC}"
 fi
-
-# Check if Cloudflare token is configured
-if grep -q "YOUR_CLOUDFLARE_API_TOKEN_HERE" swag/config/dns-conf/cloudflare.ini; then
-    echo -e "${RED}❌ Please configure your Cloudflare API token in swag/config/dns-conf/cloudflare.ini${NC}"
-    echo "1. Go to https://dash.cloudflare.com/profile/api-tokens"
-    echo "2. Create a token with 'Edit zone DNS' permissions for albizblog.online"
-    echo "3. Replace YOUR_CLOUDFLARE_API_TOKEN_HERE with your actual token"
-    echo "4. Run this script again"
-    exit 1
-fi
-
-echo -e "${GREEN}✓ Cloudflare configuration found${NC}"
 
 # Create SWAG network if it doesn't exist
 echo -e "${BLUE}Creating Docker network...${NC}"
@@ -113,11 +105,11 @@ fi
 
 # Stop any existing containers
 echo -e "${BLUE}Stopping existing containers...${NC}"
-docker-compose -f docker-compose.production.yml down --remove-orphans || true
+docker compose -f docker-compose.production.yml down --remove-orphans || true
 
 # Build and start services
 echo -e "${BLUE}Building and starting services...${NC}"
-docker-compose -f docker-compose.production.yml up -d --build
+docker compose -f docker-compose.production.yml up -d --build
 
 # Wait for services to be ready
 echo -e "${BLUE}Waiting for services to be ready...${NC}"
@@ -125,7 +117,7 @@ sleep 30
 
 # Check service status
 echo -e "${BLUE}Checking service status...${NC}"
-docker-compose -f docker-compose.production.yml ps
+docker compose -f docker-compose.production.yml ps
 
 # Check SWAG logs for SSL certificate generation
 echo -e "${BLUE}Checking SWAG logs for SSL certificate...${NC}"
@@ -168,10 +160,10 @@ echo "  Stop Session: POST https://${FULL_DOMAIN}/api/browser/stop"
 echo "  Extend Session: POST https://${FULL_DOMAIN}/api/browser/extend"
 echo ""
 echo "Management Commands:"
-echo "  View logs: docker-compose -f docker-compose.production.yml logs -f"
-echo "  Stop services: docker-compose -f docker-compose.production.yml down"
-echo "  Restart services: docker-compose -f docker-compose.production.yml restart"
-echo "  Update services: docker-compose -f docker-compose.production.yml pull && docker-compose -f docker-compose.production.yml up -d"
+echo "  View logs: docker compose -f docker-compose.production.yml logs -f"
+echo "  Stop services: docker compose -f docker-compose.production.yml down"
+echo "  Restart services: docker compose -f docker-compose.production.yml restart"
+echo "  Update services: docker compose -f docker-compose.production.yml pull && docker compose -f docker-compose.production.yml up -d"
 echo ""
 echo "Monitoring:"
 echo "  SWAG logs: docker logs swag -f"

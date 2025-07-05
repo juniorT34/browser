@@ -21,7 +21,7 @@ services:
       - SUBDOMAINS=wildcard
       - VALIDATION=dns
       - DNSPLUGIN=cloudflare
-      - EMAIL=${EMAIL:-jj1982268@gmail.com}
+      - EMAIL=jj1982268@gmail.com
       - DOCKER_MODS=linuxserver/mods:swag-auto-reload
       - MAX_LOG_SIZE=10m
     volumes:

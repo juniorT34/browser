@@ -31,25 +31,12 @@ Internet → SWAG (443/80) → Backend API (5000) → Chromium Containers (3000/
 
 ## 🚀 Quick Deployment
 
-### 1. Cloudflare Setup (Required)
+### 1. Prerequisites
 
-Before deploying, you need to set up Cloudflare DNS validation:
-
-1. **Get Cloudflare API Token:**
-   - Go to https://dash.cloudflare.com/profile/api-tokens
-   - Click "Create Token"
-   - Use "Edit zone DNS" template
-   - Select your domain (`albizblog.online`)
-   - Copy the generated token
-
-2. **Configure the Token:**
-   ```bash
-   # Edit the Cloudflare configuration file
-   nano browser/swag/config/dns-conf/cloudflare.ini
-   
-   # Replace YOUR_CLOUDFLARE_API_TOKEN_HERE with your actual token
-   dns_cloudflare_api_token = your_actual_token_here
-   ```
+The deployment script will automatically:
+- ✅ Set up Cloudflare DNS validation with your API token
+- ✅ Configure SWAG with your domain and email
+- ✅ Create all necessary directories and files
 
 ### 2. Deploy the Service
 
@@ -77,9 +64,9 @@ mkdir -p browser/data/redis
 # Create SWAG network
 docker network create swag_network
 
-# Deploy with Docker Compose
+# Deploy with Docker Compose V2
 cd browser
-docker-compose -f docker-compose.production.yml up -d --build
+docker compose -f docker-compose.production.yml up -d --build
 ```
 
 ## 🔧 Configuration
@@ -183,7 +170,7 @@ This URL will:
 
 ```bash
 # All services
-docker-compose -f docker-compose.production.yml logs -f
+docker compose -f docker-compose.production.yml logs -f
 
 # Individual services
 docker logs swag -f
@@ -196,17 +183,17 @@ docker logs browser-cleanup-worker -f
 
 ```bash
 # Stop all services
-docker-compose -f docker-compose.production.yml down
+docker compose -f docker-compose.production.yml down
 
 # Restart services
-docker-compose -f docker-compose.production.yml restart
+docker compose -f docker-compose.production.yml restart
 
 # Update services
-docker-compose -f docker-compose.production.yml pull
-docker-compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml up -d
 
 # View running containers
-docker-compose -f docker-compose.production.yml ps
+docker compose -f docker-compose.production.yml ps
 ```
 
 ### SWAG Management
@@ -289,7 +276,7 @@ curl https://browser.albizblog.online/api/health
 docker exec browser-redis redis-cli ping
 
 # Container Status
-docker-compose -f docker-compose.production.yml ps
+docker compose -f docker-compose.production.yml ps
 ```
 
 ### Metrics to Monitor
@@ -307,13 +294,13 @@ docker-compose -f docker-compose.production.yml ps
 
 ```bash
 # Pull latest images
-docker-compose -f docker-compose.production.yml pull
+docker compose -f docker-compose.production.yml pull
 
 # Restart with new images
-docker-compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.production.yml up -d
 
 # Check for any issues
-docker-compose -f docker-compose.production.yml logs -f
+docker compose -f docker-compose.production.yml logs -f
 ```
 
 ### Backup
@@ -340,7 +327,7 @@ Your deployment is successful when:
 
 If you encounter issues:
 
-1. Check the logs: `docker-compose -f docker-compose.production.yml logs -f`
+1. Check the logs: `docker compose -f docker-compose.production.yml logs -f`
 2. Verify DNS settings point to your server
 3. Ensure ports 80 and 443 are open and forwarded
 4. Check SWAG documentation: https://docs.linuxserver.io/general/swag/
