@@ -30,6 +30,21 @@ app.get('/api/debug/sessions', (req, res) => {
   });
 });
 
+// Test proxy endpoint (unprotected)
+app.get('/api/debug/test-proxy/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  const sessionPortMap = require('./utils/proxySession').sessionPortMap;
+  const port = sessionPortMap[sessionId];
+  
+  res.json({
+    sessionId,
+    port,
+    exists: !!port,
+    target: port ? `http://127.0.0.1:${port}` : null,
+    allSessions: sessionPortMap
+  });
+});
+
 // Dev route to generate a test JWT
 app.get('/api/dev/token', (req, res) => {
   // Example test user payload

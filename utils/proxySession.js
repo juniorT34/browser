@@ -25,17 +25,23 @@ function proxySession() {
       const sessionId = req.params.sessionId;
       const port = sessionPortMap[sessionId];
       
-      console.log(`Proxy request for session: ${sessionId}`);
+      console.log(`=== PROXY DEBUG ===`);
+      console.log(`Request URL: ${req.url}`);
+      console.log(`Request path: ${req.path}`);
+      console.log(`Session ID from URL: ${sessionId}`);
       console.log(`Available sessions:`, Object.keys(sessionPortMap));
+      console.log(`Session port map:`, sessionPortMap);
       console.log(`Port for session ${sessionId}:`, port);
       
       if (!port) {
-        console.log(`Session ${sessionId} not found in sessionPortMap`);
+        console.log(`❌ Session ${sessionId} not found in sessionPortMap`);
+        console.log(`Available session IDs:`, Object.keys(sessionPortMap));
         return null;
       }
       
       const target = `http://127.0.0.1:${port}`;
-      console.log(`Routing to: ${target}`);
+      console.log(`✅ Routing to: ${target}`);
+      console.log(`=== END PROXY DEBUG ===`);
       return target;
     },
     pathRewrite: function (path, req) {
