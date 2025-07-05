@@ -105,9 +105,10 @@ exports.startSession = async (req, res) => {
     const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
     // Register the session-port mapping for proxying
     registerSession(sessionId, port);
-    // Return a proxied URL
+    // Return both proxied and direct URLs for testing
     const baseUrl = `https://${PUBLIC_HOST}`;
     const guiUrl = `${baseUrl}/session/${sessionId}/`;
+    const directUrl = `http://${PUBLIC_HOST}:${port}`;
     const starting_time = new Date().toISOString();
     const expires_at = new Date(Date.now() + 300000).toISOString();
 
@@ -141,6 +142,7 @@ exports.startSession = async (req, res) => {
       userId,
       api_base_url: baseUrl,
       gui_url: guiUrl,
+      direct_url: directUrl,
       containerId: container.id,
       starting_time,
       expires_in,

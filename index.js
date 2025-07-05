@@ -20,10 +20,13 @@ app.get('/api/health', (req, res) => {
 // Debug endpoint to check active sessions (unprotected)
 app.get('/api/debug/sessions', (req, res) => {
   const activeSessions = listActiveSessions();
+  const sessionPortMap = require('./utils/proxySession').sessionPortMap;
   res.json({
     activeSessions,
     totalSessions: activeSessions.length,
-    sessionIds: Object.keys(require('./utils/proxySession').sessionPortMap)
+    sessionIds: Object.keys(sessionPortMap),
+    sessionPortMap: sessionPortMap,
+    message: 'Use /api/debug/sessions to check active sessions and their port mappings'
   });
 });
 
