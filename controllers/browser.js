@@ -63,8 +63,8 @@ exports.startSession = async (req, res) => {
         ],
         HostConfig: {
           PortBindings: {
-            '3000/tcp': [{ HostPort: '' }], // Let Docker assign a random port
-            '3001/tcp': [{ HostPort: '' }]
+            '3000/tcp': [{ HostPort: '', HostIP: '0.0.0.0' }], // Bind to all interfaces
+            '3001/tcp': [{ HostPort: '', HostIP: '0.0.0.0' }]  // Bind to all interfaces
           },
           SecurityOpt: ['seccomp=unconfined'],
           ShmSize: 1024 * 1024 * 1024 // 1GB
@@ -92,23 +92,27 @@ exports.startSession = async (req, res) => {
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     const data = await container.inspect();
-    const portBindings = data.NetworkSettings.Ports['3000/tcp'];
-    if (!portBindings || !portBindings[0] || !portBindings[0].HostPort) {
+    const httpPortBindings = data.NetworkSettings.Ports['3000/tcp'];
+    const httpsPortBindings = data.NetworkSettings.Ports['3001/tcp'];
+    
+    if (!httpPortBindings || !httpPortBindings[0] || !httpPortBindings[0].HostPort) {
       return res.status(500).json({ error: 'Chromium container did not expose a host port for 3000/tcp' });
     }
     
-    const port = portBindings[0].HostPort;
+    const httpPort = httpPortBindings[0].HostPort;
+    const httpsPort = httpsPortBindings && httpsPortBindings[0] ? httpsPortBindings[0].HostPort : null;
     const sessionId = container.id;
-    console.log(`Container ${sessionId} mapped to port ${port}`);
+    console.log(`Container ${sessionId} mapped to HTTP port ${httpPort} and HTTPS port ${httpsPort}`);
     
     // Use PUBLIC_HOST env var for public-facing URL
     const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
-    // Register the session-port mapping for proxying
-    registerSession(sessionId, port);
+    // Register the session-port mapping for proxying (use HTTP port)
+    registerSession(sessionId, httpPort);
     // Return both proxied and direct URLs for testing
     const baseUrl = `https://${PUBLIC_HOST}`;
     const guiUrl = `${baseUrl}/session/${sessionId}/`;
-    const directUrl = `http://${PUBLIC_HOST}:${port}`;
+    const directHttpUrl = `http://${PUBLIC_HOST}:${httpPort}`;
+    const directHttpsUrl = httpsPort ? `https://${PUBLIC_HOST}:${httpsPort}` : null;
     const starting_time = new Date().toISOString();
     const expires_at = new Date(Date.now() + 300000).toISOString();
 
@@ -142,11 +146,17 @@ exports.startSession = async (req, res) => {
       userId,
       api_base_url: baseUrl,
       gui_url: guiUrl,
-      direct_url: directUrl,
+      direct_http_url: directHttpUrl,
+      direct_https_url: directHttpsUrl,
       containerId: container.id,
       starting_time,
       expires_in,
-      container_port: port
+      http_port: httpPort,
+      https_port: httpsPort,
+      usage_notes: {
+        recommended: "Use direct_http_url to avoid certificate issues",
+        https_warning: "HTTPS may be blocked by HSTS due to self-signed certificate"
+      }
     });
   } catch (err) {
     console.error('Error starting Chromium container:', err);
