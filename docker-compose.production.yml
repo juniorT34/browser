@@ -1,4 +1,4 @@
-version: '3.9'
+
 
 networks:
   swag_network:
@@ -80,7 +80,7 @@ services:
   cleanup-worker:
     build:
       context: .
-      dockerfile: ./Dockerfile
+      dockerfile: ./clean/Dockerfile.cleanup
     container_name: browser-cleanup-worker
     environment:
       - NODE_ENV=production
@@ -93,7 +93,6 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
-    command: node cleanup-worker.js
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
