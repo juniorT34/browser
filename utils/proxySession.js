@@ -6,11 +6,20 @@ const DOCKER_GATEWAY = process.env.DOCKER_GATEWAY || '172.17.0.1';
 // In-memory sessionId -> containerName mapping (cache)
 const sessionPortMap = {};
 
-// Register session with containerName and containerId
-async function registerSession(sessionId, containerName, containerId) {
-  sessionPortMap[sessionId] = containerName;
-  await redisRegisterSession(sessionId, { containerName, containerId });
-  console.log(`Session registered: ${sessionId} -> containerName ${containerName}`);
+// Register session with containerName and containerId (support both old and new signatures)
+async function registerSession(sessionId, containerNameOrObj, containerId) {
+  let sessionData;
+  if (typeof containerNameOrObj === 'object' && containerNameOrObj !== null) {
+    // New style: registerSession(sessionId, { containerName, containerId, containerIp })
+    sessionPortMap[sessionId] = containerNameOrObj;
+    sessionData = containerNameOrObj;
+  } else {
+    // Old style: registerSession(sessionId, containerName, containerId)
+    sessionPortMap[sessionId] = { containerName: containerNameOrObj, containerId };
+    sessionData = { containerName: containerNameOrObj, containerId };
+  }
+  await redisRegisterSession(sessionId, sessionData);
+  console.log(`Session registered: ${sessionId} -> containerName ${sessionData.containerName}`);
   console.log('Current sessions:', Object.keys(sessionPortMap));
 }
 
@@ -21,6 +30,18 @@ async function unregisterSession(sessionId) {
   console.log('Current sessions:', Object.keys(sessionPortMap));
 }
 
+function extractSessionId(req) {
+  // Try Express params first
+  if (req.params && req.params.sessionId) return req.params.sessionId;
+  // Fallback: extract from URL (for WebSocket upgrades)
+  const match = req.url && req.url.match(/^\/session\/([^\/]+)/);
+  if (match) return match[1];
+  // Fallback: extract from path (if mounted at /session/:sessionId)
+  const wsMatch = req.url && req.url.match(/^\/([^\/]+)\//);
+  if (wsMatch) return wsMatch[1];
+  return null;
+}
+
 // Middleware to proxy /session/:sessionId/* to the correct container by name
 function proxySession() {
   return createProxyMiddleware({
@@ -28,81 +49,92 @@ function proxySession() {
     changeOrigin: true,
     ws: true,
     secure: false, // allow self-signed certs from Chromium containers
-    router: async function (req) {
-      const sessionId = req.params && req.params.sessionId;
-      if (!sessionId) {
-        return null;
+    router: async function (req, res) {
+      // Extra debug logging
+      console.log('==================== PROXY SESSION REQUEST ====================');
+      console.log('Date:', new Date().toISOString());
+      console.log('req.method:', req.method);
+      console.log('req.url:', req.url);
+      console.log('req.originalUrl:', req.originalUrl);
+      console.log('req.baseUrl:', req.baseUrl);
+      console.log('req.path:', req.path);
+      console.log('req.headers:', req.headers);
+      if (req.connection && req.connection.remoteAddress) {
+        console.log('Remote address:', req.connection.remoteAddress);
       }
-      let containerName = sessionPortMap[sessionId];
+      if (req.headers['upgrade']) {
+        console.log('WebSocket upgrade requested:', req.headers['upgrade']);
+      }
+      const sessionId = extractSessionId(req);
+      console.log('Extracted sessionId:', sessionId);
+      if (!sessionId) {
+        console.warn('No sessionId found in request');
+        if (res && typeof res.writeHead === 'function') {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Session ID not found in request' }));
+        }
+        return '';
+      }
+      console.log('sessionPortMap:', sessionPortMap);
+      let containerName, containerIp;
+      const mapEntry = sessionPortMap[sessionId];
+      if (typeof mapEntry === 'string') {
+        containerName = mapEntry;
+      } else if (mapEntry && typeof mapEntry === 'object') {
+        containerName = mapEntry.containerName;
+        containerIp = mapEntry.containerIp;
+      }
       if (!containerName) {
-        // Try Redis
         const session = await getSession(sessionId);
         if (session && session.containerName) {
           containerName = session.containerName;
-          sessionPortMap[sessionId] = containerName; // cache for future
+          containerIp = session.containerIp;
+          // Always update cache in new format
+          sessionPortMap[sessionId] = { containerName, containerId: sessionId, containerIp };
         }
       }
-      if (!containerName) {
-        console.error(`[Proxy] No containerName found for sessionId ${sessionId}. sessionPortMap:`, sessionPortMap);
-        return null;
+      console.log('containerName:', containerName);
+      console.log('containerIp:', containerIp);
+      if (!containerIp) {
+        console.warn('No containerIp found for sessionId:', sessionId);
+        if (res && typeof res.writeHead === 'function') {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Session not found or expired' }));
+        }
+        return '';
       }
-      return `https://${containerName}:3001`;
+      const targetUrl = `https://${containerIp}:3001`;
+      console.log('Proxy target URL:', targetUrl);
+      console.log('================== END PROXY SESSION REQUEST ==================');
+      return targetUrl;
     },
     pathRewrite: function (path, req) {
-      const rewrittenPath = path.replace(/^\/session\/[^\/]+/, '');
-      return rewrittenPath;
-    },
-    onProxyReq: async function (proxyReq, req, res) {
-      const sessionId = req.params && req.params.sessionId;
-      if (!sessionId) {
-        res.statusCode = 400;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          error: 'Bad request',
-          message: 'Missing sessionId in request parameters'
-        }));
-        return;
-      }
-      let containerName = sessionPortMap[sessionId];
-      if (!containerName) {
-        const session = await getSession(sessionId);
-        if (session && session.containerName) {
-          containerName = session.containerName;
-          sessionPortMap[sessionId] = containerName;
-        }
-      }
-      if (!containerName) {
-        // Diagnostics: log all running containers and their names
-        const Docker = require('dockerode');
-        const docker = new Docker();
-        let containers = [];
-        try {
-          containers = await docker.listContainers({ all: true });
-        } catch (e) {
-          console.error('[Proxy] Could not list Docker containers:', e);
-        }
-        const containerNames = containers.map(c => c.Names[0]);
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          error: 'Session not found',
-          sessionId: sessionId,
-          availableSessions: Object.keys(sessionPortMap),
-          dockerContainers: containerNames,
-          message: 'The session may have expired, never existed, or the container is not ready. Please start a new session.'
-        }));
-        return;
-      }
+      // Remove /session/:sessionId from the path
+      return path.replace(/^\/session\/[^\/]+/, '');
     },
     onError: function (err, req, res) {
-      console.error('Proxy error:', err);
-      res.statusCode = 502;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({
-        error: 'Proxy error',
-        message: 'Failed to connect to session container',
-        details: err.message
-      }));
+      if (res && typeof res.setHeader === 'function') {
+        res.statusCode = 502;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          error: 'Proxy error',
+          message: 'Failed to connect to session container',
+          details: err.message
+        }));
+      } else if (res && typeof res.writeHead === 'function') {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Proxy error',
+          message: 'Failed to connect to session container',
+          details: err.message
+        }));
+      } else if (res && typeof res.end === 'function') {
+        res.end(JSON.stringify({
+          error: 'Proxy error',
+          message: 'Failed to connect to session container',
+          details: err.message
+        }));
+      }
     }
   });
 }

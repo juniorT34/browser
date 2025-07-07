@@ -5,6 +5,8 @@ const auth = require('./middlewares/auth');
 const { sign } = require('./utils/jwt');
 const browserRouter = require('./routes/browser');
 const { proxySession, registerSession, unregisterSession, listActiveSessions } = require('./utils/proxySession');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const { sessionPortMap } = require('./utils/proxySession');
 require('events').EventEmitter.defaultMaxListeners = 50;
 
 const app = express();
@@ -71,6 +73,46 @@ app.use('/api/browser', browserRouter);
 
 // Proxy session traffic to the correct Chromium container
 app.use('/session/:sessionId', proxySession());
+
+// Proxy /session/:sessionId/websockify directly to the container's /websockify endpoint
+app.use('/session/:sessionId/websockify', (req, res, next) => {
+  const sessionId = req.params.sessionId;
+  const session = sessionPortMap[sessionId];
+
+  if (!session || !session.containerIp) {
+    return res.status(404).send('Session not found');
+  }
+
+  const target = `https://${session.containerIp}:3001`;
+
+  return createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    ws: true,
+    secure: false,
+    pathRewrite: {
+      [`^/session/${sessionId}/websockify`]: '/websockify',
+    }
+  })(req, res, next);
+});
+
+// In your index.js, before the /session/:sessionId route
+app.use('/websockify', (req, res, next) => {
+  // Try to get sessionId from query or header
+  const sessionId = req.query.sessionId || req.headers['x-session-id'];
+  const session = sessionPortMap[sessionId];
+  if (!session || !session.containerIp) {
+    return res.status(404).send('Session not found');
+  }
+  const target = `https://${session.containerIp}:3001`;
+  return createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    ws: true,
+    secure: false,
+    pathRewrite: { '^/websockify': '/websockify' }
+  })(req, res, next);
+});
 
 app.listen(PORT, () => {
   console.log(`HTTP server running on http://localhost:${PORT}`);

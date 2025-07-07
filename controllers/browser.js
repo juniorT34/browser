@@ -15,8 +15,13 @@ const cleanupTimers = {};
       if (c.Names.some(name => name.includes('chromium_'))) {
         const containerName = c.Names[0].replace(/^\//, '');
         const sessionId = c.Id;
-        await registerSession(sessionId, containerName, sessionId);
-        console.log(`[Startup] Recovered orphaned session: ${sessionId} -> ${containerName}`);
+        // Fetch container IP
+        const data = await docker.getContainer(sessionId).inspect();
+        const containerIp = data.NetworkSettings.Networks && data.NetworkSettings.Networks['browser_network']
+          ? data.NetworkSettings.Networks['browser_network'].IPAddress
+          : null;
+        await registerSession(sessionId, { containerName, containerId: sessionId, containerIp });
+        console.log(`[Startup] Recovered orphaned session: ${sessionId} -> ${containerName} (IP: ${containerIp})`);
       }
     }
   } catch (err) {
@@ -162,7 +167,7 @@ exports.startSession = async (req, res) => {
     
     // Register the session with the container name (preferred for DNS resolution)
     console.log(`Registering session: ${sessionId} -> container name ${containerName}`);
-    await registerSession(sessionId, containerName, sessionId);
+    await registerSession(sessionId, { containerName, containerId: sessionId, containerIp });
 
     // Use PUBLIC_HOST env var for public-facing URL
     // Return both proxied and direct URLs for testing

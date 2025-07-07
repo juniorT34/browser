@@ -77,6 +77,8 @@ services:
     build:
       context: .
       dockerfile: ./clean/Dockerfile.cleanup
+      args:
+        - DOCKER_GID=998
     container_name: browser-cleanup-worker
     environment:
       - NODE_ENV=production
@@ -91,6 +93,7 @@ services:
     restart: unless-stopped
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    user: root
 
 volumes:
   redis-data:

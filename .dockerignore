@@ -156,4 +156,7 @@ README*
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Do NOT ignore static assets needed for the container
+!public/js/pcm-player.js 
