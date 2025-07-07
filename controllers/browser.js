@@ -2,9 +2,27 @@ const docker = require('../services/docker');
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
 const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE || 'junior039/disposable-browser-chromium:latest';
 const { registerSession, unregisterSession } = require('../utils/proxySession');
+const net = require('net');
 
 // Store timers for cleanup
 const cleanupTimers = {};
+
+// On startup, scan for running Chromium containers and re-register them
+(async function recoverOrphanedSessions() {
+  try {
+    const containers = await docker.listContainers({ all: false });
+    for (const c of containers) {
+      if (c.Names.some(name => name.includes('chromium_'))) {
+        const containerName = c.Names[0].replace(/^\//, '');
+        const sessionId = c.Id;
+        await registerSession(sessionId, containerName, sessionId);
+        console.log(`[Startup] Recovered orphaned session: ${sessionId} -> ${containerName}`);
+      }
+    }
+  } catch (err) {
+    console.error('[Startup] Error recovering orphaned sessions:', err);
+  }
+})();
 
 exports.startSession = async (req, res) => {
   const { userId } = req.body;
@@ -93,12 +111,47 @@ exports.startSession = async (req, res) => {
     
     console.log('Container started successfully');
     
+    // Wait for container to be ready (poll port 3001 for up to 15 seconds)
+    const maxWait = 15000;
+    const interval = 500;
+    let ready = false;
+    let waited = 0;
+    const data = await container.inspect();
+    const containerIp = data.NetworkSettings.Networks && data.NetworkSettings.Networks['browser_network'] ? data.NetworkSettings.Networks['browser_network'].IPAddress : null;
+    if (!containerIp) {
+      return res.status(500).json({ error: 'Could not determine container IP on browser_network' });
+    }
+    while (waited < maxWait) {
+      try {
+        await new Promise((resolve, reject) => {
+          const socket = net.connect({ host: containerIp, port: 3001 }, () => {
+            socket.end();
+            resolve();
+          });
+          socket.on('error', reject);
+          setTimeout(() => {
+            socket.destroy();
+            reject(new Error('Timeout'));
+          }, 1000);
+        });
+        ready = true;
+        break;
+      } catch (e) {
+        await new Promise(r => setTimeout(r, interval));
+        waited += interval;
+      }
+    }
+    if (!ready) {
+      // Clean up container if not ready
+      try { await container.stop(); } catch {}
+      try { await container.remove(); } catch {}
+      return res.status(500).json({ error: 'Chromium container did not become ready in time' });
+    }
+    
     // Wait for container to be ready
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    const data = await container.inspect();
     const sessionId = container.id;
-    const containerIp = data.NetworkSettings.Networks && data.NetworkSettings.Networks['browser_network'] ? data.NetworkSettings.Networks['browser_network'].IPAddress : null;
     let directHttpsUrl = null;
     let publishedPort = null;
     if (data.NetworkSettings.Ports && data.NetworkSettings.Ports['3001/tcp'] && data.NetworkSettings.Ports['3001/tcp'][0]) {
@@ -107,12 +160,9 @@ exports.startSession = async (req, res) => {
     }
     console.log(`Container ${sessionId} started with name ${containerName} and IP ${containerIp}`);
     
-    if (!containerIp) {
-      return res.status(500).json({ error: 'Could not determine container IP on browser_network' });
-    }
     // Register the session with the container name (preferred for DNS resolution)
     console.log(`Registering session: ${sessionId} -> container name ${containerName}`);
-    await registerSession(sessionId, containerName);
+    await registerSession(sessionId, containerName, sessionId);
 
     // Use PUBLIC_HOST env var for public-facing URL
     // Return both proxied and direct URLs for testing

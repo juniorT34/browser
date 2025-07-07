@@ -17,8 +17,12 @@ redis.on('ready', () => {
 // Session management functions
 async function registerSession(sessionId, sessionData) {
   try {
+    // Defensive: ensure containerName and containerId are present
+    if (!sessionData.containerName || !sessionData.containerId) {
+      throw new Error('registerSession: containerName and containerId are required');
+    }
     await redis.hset('active_sessions', sessionId, JSON.stringify(sessionData));
-    console.log(`Session registered in Redis: ${sessionId}`);
+    console.log(`Session registered in Redis: ${sessionId} -> ${sessionData.containerName}`);
     return true;
   } catch (err) {
     console.error('Error registering session in Redis:', err);
