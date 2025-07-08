@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Globe, Monitor, FileText, Plus, Upload as UploadIcon } from "lucide-react";
+import { Globe, Monitor, FileText, Plus, Upload as UploadIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import clsx from "clsx";
@@ -36,6 +36,7 @@ export default function ServicesPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [fullPageLoading, setFullPageLoading] = useState(false);
 
   // Timer effect for all running sessions
   useEffect(() => {
@@ -63,7 +64,18 @@ export default function ServicesPage() {
   };
 
   // Handlers
-  const handleStart = (key: string) => {
+  const handleStart = async (key: string) => {
+    setFullPageLoading(true);
+    try {
+      // Simulate backend call (replace with real API call)
+      await new Promise((res) => setTimeout(res, 1800));
+      // Example: const res = await fetch('/api/start', ...)
+      // const { url } = await res.json();
+      const url = 'https://example.com/session'; // Replace with real URL from backend
+      window.open(url, '_blank');
+    } finally {
+      setFullPageLoading(false);
+    }
     setActiveSessions((prev) => ({
       ...prev,
       [key]: { running: true, timeLeft: SESSION_DURATION },
@@ -130,6 +142,12 @@ export default function ServicesPage() {
 
   return (
     <>
+      {fullPageLoading && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 dark:bg-black/80 backdrop-blur-sm">
+          <Loader2 className="animate-spin text-orange-600" size={64} />
+          <div className="mt-6 text-xl font-semibold text-orange-700 dark:text-orange-300">Starting your secure session...</div>
+        </div>
+      )}
       <Navbar />
       <div className="min-h-screen flex flex-col items-center justify-start pt-28 pb-16 px-4 bg-gradient-to-br from-orange-50 via-white to-orange-100 dark:from-orange-950 dark:via-black dark:to-orange-900">
         <h1 className="text-4xl font-extrabold text-orange-600 dark:text-orange-400 mb-10">Disposable Services</h1>
