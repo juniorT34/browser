@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { Trash2, LogOut, Smartphone, UploadCloud, User } from "lucide-react";
-import Image from "next/image";
+// import Image from "next/image";
 
 const mockUser = {
   name: "Jane Doe",
