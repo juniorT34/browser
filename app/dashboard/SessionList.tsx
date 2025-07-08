@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Session, SessionCard } from "./SessionCard";
 import { toast } from "sonner";
+import type { LogEntry } from "./SessionCard";
 
 const mockSessions: Session[] = [
   {
@@ -19,6 +20,19 @@ const mockSessions: Session[] = [
     remaining: 0,
   },
 ];
+
+const mockLogs: Record<string, LogEntry[]> = {
+  "1": [
+    { timestamp: new Date(Date.now() - 170000).toISOString(), level: "info", message: "Session started." },
+    { timestamp: new Date(Date.now() - 120000).toISOString(), level: "info", message: "User connected from 192.168.1.10." },
+    { timestamp: new Date(Date.now() - 60000).toISOString(), level: "warn", message: "High CPU usage detected." },
+    { timestamp: new Date(Date.now() - 20000).toISOString(), level: "info", message: "Session extended by 5 minutes." },
+  ],
+  "2": [
+    { timestamp: new Date(Date.now() - 600000).toISOString(), level: "info", message: "Session started." },
+    { timestamp: new Date(Date.now() - 300000).toISOString(), level: "error", message: "Container stopped unexpectedly." },
+  ],
+};
 
 export default function SessionList() {
   const [sessions, setSessions] = useState<Session[]>(mockSessions);
@@ -59,6 +73,7 @@ export default function SessionList() {
           session={session}
           onStop={handleStop}
           onExtend={handleExtend}
+          logs={mockLogs[session.id] || []}
         />
       ))}
     </div>

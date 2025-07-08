@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { Monitor, FileText, User } from "lucide-react";
+import { Monitor, FileText, User, PowerIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { useState } from "react";
 
 const navItems = [
   {
@@ -12,10 +14,11 @@ const navItems = [
   },
   {
     label: "Logs",
-    href: "#",
+    href: "/dashboard/admin/logs",
     icon: <FileText size={20} />,
-    active: () => false, // Keep disabled unless user log viewing is implemented
-    disabled: true,
+    active: (pathname: string) => pathname.startsWith("/dashboard/admin/logs"),
+    disabled: false, // Enable for admin
+    adminOnly: true, // Only show for admin users
   },
   {
     label: "Profile",
@@ -27,41 +30,71 @@ const navItems = [
 ];
 
 export default function SideNav() {
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";
 
   return (
-    <nav className="h-full bg-white/20 dark:bg-black/30 backdrop-blur-xl shadow-2xl rounded-r-2xl flex flex-col gap-6 p-6 text-orange-600 min-w-[200px]">
-      <Link
-        href="/services"
-        className="flex items-center gap-3 mb-8 group"
-      >
-        <Logo size={40} />
-        <span className="sr-only">Go to Services</span>
-      </Link>
+    <div
+      className={`flex h-full flex-col px-3 py-4 md:px-2 transition-all duration-300 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 ${collapsed ? "w-20" : "w-64"}`}
+    >
+      {/* Top: Logo + Name + Collapse Button */}
+      <div className="flex items-center justify-between mb-8">
+        <Link href="/services" className="flex items-center gap-3 group">
+          <Logo size={40} />
+          {!collapsed && (
+            <span className="text-xl font-bold text-orange-600 tracking-wide select-none transition-opacity duration-200">OUSEC</span>
+          )}
+        </Link>
+        <button
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={() => setCollapsed((c) => !c)}
+          className="ml-2 p-1 rounded hover:bg-orange-100 dark:hover:bg-zinc-800 transition-colors"
+        >
+          {collapsed ? <ChevronRight size={22} /> : <ChevronLeft size={22} />}
+        </button>
+      </div>
+      {/* Nav Items */}
       <ul className="flex flex-col gap-2">
         {navItems.map((item) => (
           <li key={item.label}>
             {item.disabled ? (
-              <span className="flex items-center gap-2 font-semibold text-gray-400 cursor-not-allowed opacity-60">
-                {item.icon}
-                {item.label}
-              </span>
+              <span className={`flex items-center gap-2 font-semibold text-gray-400 cursor-not-allowed opacity-60 ${collapsed ? "justify-center" : ""}`}>{item.icon}{!collapsed && item.label}</span>
             ) : (
               <Link
                 href={item.href}
-                className={`flex items-center gap-2 font-semibold px-3 py-2 rounded-lg transition-all duration-150
+                className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} font-semibold px-3 py-2 rounded-lg transition-all duration-150
                   ${item.active(pathname)
                     ? "bg-orange-600/20 text-orange-700 shadow-inner"
                     : "hover:bg-orange-600/10 hover:text-orange-700"}
                 `}
               >
                 {item.icon}
-                {item.label}
+                {!collapsed && item.label}
               </Link>
             )}
           </li>
         ))}
       </ul>
-    </nav>
+      {/* Spacer */}
+      <div className="flex-1" />
+      {/* Theme Toggle */}
+      <div className={`flex ${collapsed ? "justify-center" : "justify-end"} mb-2`}>
+        <ThemeToggle />
+      </div>
+      {/* Logout button at the bottom */}
+      <form
+        action={async () => {
+          'use server';
+          // Replace with your signOut logic if needed
+          // await signOut({ redirectTo: '/' });
+        }}
+        className="pt-2"
+      >
+        <button type="submit" className={`flex w-full items-center ${collapsed ? "justify-center" : "gap-2"} rounded-md bg-gray-900/80 text-orange-400 hover:bg-orange-900 hover:text-white transition-colors px-3 py-2 font-medium mt-2`}>
+          <PowerIcon className="w-5 h-5" />
+          {!collapsed && <span className="hidden md:inline">Logout</span>}
+        </button>
+      </form>
+    </div>
   );
 } 

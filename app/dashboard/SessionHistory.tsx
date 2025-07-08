@@ -20,7 +20,7 @@ const mockHistory = [
 ];
 
 const typeIconMap = {
-  chromium: <Globe className="text-blue-500" />,
+  chromium: <Globe className="text-orange-500" />,
   ubuntu: <Monitor className="text-orange-500" />,
   kali: <Monitor className="text-orange-500" />,
   fedora: <Monitor className="text-orange-500" />,

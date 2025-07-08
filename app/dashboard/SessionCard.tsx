@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Globe, Monitor, Timer, StopCircle, PlusCircle, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export type Session = {
   id: string;
@@ -10,20 +11,28 @@ export type Session = {
   remaining: number; // seconds
 };
 
+export type LogEntry = {
+  timestamp: string;
+  level: "info" | "warn" | "error";
+  message: string;
+};
+
 const typeIconMap = {
-  chromium: <Globe className="text-blue-500" />,
+  chromium: <Globe className="text-orange-500" />,
   ubuntu: <Monitor className="text-orange-500" />,
   kali: <Monitor className="text-orange-500" />,
   fedora: <Monitor className="text-orange-500" />,
   libreoffice: <Monitor className="text-orange-500" />,
 };
 
-export function SessionCard({ session, onStop, onExtend }: {
+export function SessionCard({ session, onStop, onExtend, logs = [] }: {
   session: Session;
   onStop: (id: string) => void;
   onExtend: (id: string) => void;
+  logs?: LogEntry[];
 }) {
   const [remaining, setRemaining] = useState(session.remaining);
+  const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
     if (session.status !== "active") return;
@@ -74,6 +83,32 @@ export function SessionCard({ session, onStop, onExtend }: {
           </button>
         </div>
       )}
+      <Dialog open={showLogs} onOpenChange={setShowLogs}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>Session Logs</DialogTitle>
+            <DialogDescription>
+              Logs for session <span className="font-mono text-orange-600">{session.id}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-72 overflow-y-auto mt-2 space-y-2">
+            {logs.length === 0 ? (
+              <div className="text-gray-400 text-center py-8">No logs for this session.</div>
+            ) : (
+              logs.map((log, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm p-2 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                  <span className={`mt-1 w-2 h-2 rounded-full ${log.level === "info" ? "bg-blue-400" : log.level === "warn" ? "bg-yellow-400" : "bg-red-500"}`}></span>
+                  <div>
+                    <span className="font-mono text-xs text-gray-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    <span className={`ml-2 font-semibold ${log.level === "info" ? "text-blue-500" : log.level === "warn" ? "text-yellow-600" : "text-red-600"}`}>{log.level.toUpperCase()}</span>
+                    <span className="ml-2">{log.message}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
