@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useState, useRef } from "react";
 import { Trash2, LogOut, Smartphone, UploadCloud, User } from "lucide-react";
 // import Image from "next/image";

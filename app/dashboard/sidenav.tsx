@@ -1,5 +1,5 @@
 'use client';
-
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { Monitor, FileText, User, PowerIcon, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
@@ -7,44 +7,73 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useState } from "react";
 import { signOutAction } from './signOutAction';
 import { usePathname } from 'next/navigation';
-
-const isAdmin = true; // TODO: Replace with real admin check
-
-const navItems = [
-  {
-    label: "Sessions",
-    href: "/dashboard",
-    icon: <Monitor size={20} />,
-    active: (pathname: string) => pathname === "/dashboard",
-    disabled: false,
-  },
-  {
-    label: "Logs",
-    href: "/dashboard/admin/logs",
-    icon: <FileText size={20} />,
-    active: (pathname: string) => pathname.startsWith("/dashboard/admin/logs"),
-    disabled: false, // Enable for admin
-    adminOnly: true, // Only show for admin users
-  },
-  {
-    label: "Profile",
-    href: "/dashboard/profile",
-    icon: <User size={20} />,
-    active: (pathname: string) => pathname === "/dashboard/profile",
-    disabled: false,
-  },
-  ...(isAdmin ? [{
-    label: "Manage",
-    href: "/dashboard/admin/manage",
-    icon: <Shield size={20} />,
-    active: (pathname: string) => pathname.startsWith("/dashboard/admin/manage"),
-    disabled: false,
-  }] : []),
-];
+import { useSession } from "next-auth/react";
 
 export default function SideNav() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  let session = null;
+  let error = null;
+  try {
+    const sessionResult = useSession?.();
+    if (!sessionResult) {
+      error = 'useSession is undefined. This hook must be used in a client component.';
+      if (typeof window !== 'undefined') {
+        // Only log on client
+        console.error(error);
+      }
+    }
+    session = sessionResult?.data ?? null;
+  } catch (e) {
+    error = e;
+    if (typeof window !== 'undefined') {
+      console.error('Error calling useSession:', e);
+    }
+  }
+  if (!session) {
+    if (typeof window !== 'undefined') {
+      console.warn('No session found in SideNav. Showing fallback UI.');
+    }
+    return (
+      <div className="flex h-full items-center justify-center text-red-600 font-bold">
+        Login required
+      </div>
+    );
+  }
+  const isAdmin = session?.user?.role === "admin";
+
+  const navItems = [
+    {
+      label: "Sessions",
+      href: "/dashboard",
+      icon: <Monitor size={20} />,
+      active: (pathname: string) => pathname === "/dashboard",
+      disabled: false,
+    },
+    // Only show Logs if admin
+    ...(isAdmin ? [{
+      label: "Logs",
+      href: "/dashboard/admin/logs",
+      icon: <FileText size={20} />,
+      active: (pathname: string) => pathname.startsWith("/dashboard/admin/logs"),
+      disabled: false,
+    }] : []),
+    {
+      label: "Profile",
+      href: "/dashboard/profile",
+      icon: <User size={20} />,
+      active: (pathname: string) => pathname === "/dashboard/profile",
+      disabled: false,
+    },
+    // Only show Manage if admin
+    ...(isAdmin ? [{
+      label: "Manage",
+      href: "/dashboard/admin/manage",
+      icon: <Shield size={20} />,
+      active: (pathname: string) => pathname.startsWith("/dashboard/admin/manage"),
+      disabled: false,
+    }] : []),
+  ];
 
   return (
     <div

@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { Globe, Monitor } from "lucide-react";
 import React from 'react';
