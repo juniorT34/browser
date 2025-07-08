@@ -8,5 +8,6 @@ router.post('/stop', auth, browserController.stopSession);
 router.post('/extend', auth, browserController.extendSession);
 router.get('/remaining_time', auth, browserController.getRemainingTime);
 router.get('/admin/sessions', auth, browserController.listActiveSessions);
+router.post('/upload', auth, browserController.uploadFile);
 
 module.exports = router; 

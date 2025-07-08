@@ -3,6 +3,15 @@ const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
 const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE || 'kasmweb/chromium:1.15.0-rolling';
 const { registerSession, unregisterSession } = require('../utils/proxySession');
 const net = require('net');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Set up multer for file uploads
+const upload = multer({
+  dest: path.join(__dirname, '../../uploads'),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+});
 
 // Store timers for cleanup
 const cleanupTimers = {};
@@ -359,3 +368,22 @@ exports.listActiveSessions = async (req, res) => {
   }
   res.json({ sessions });
 };
+
+// File upload handler for file viewer
+exports.uploadFile = [
+  upload.single('file'),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    // Optionally, move/rename/process the file here
+    // For now, just return the file info
+    return res.json({
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path,
+    });
+  },
+];
