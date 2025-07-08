@@ -1,6 +1,6 @@
 const docker = require('../services/docker');
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'localhost';
-const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE || 'junior039/disposable-browser-chromium:latest';
+const CHROMIUM_IMAGE = process.env.CHROMIUM_IMAGE || 'kasmweb/chromium:1.15.0-rolling';
 const { registerSession, unregisterSession } = require('../utils/proxySession');
 const net = require('net');
 
@@ -167,7 +167,15 @@ exports.startSession = async (req, res) => {
     
     // Register the session with the container name (preferred for DNS resolution)
     console.log(`Registering session: ${sessionId} -> container name ${containerName}`);
-    await registerSession(sessionId, { containerName, containerId: sessionId, containerIp });
+    await registerSession(sessionId, {
+      containerName,
+      containerId: sessionId,
+      containerIp,
+      userId,
+      gui_url: guiUrl,
+      starting_time,
+      expires_at
+    });
 
     // Use PUBLIC_HOST env var for public-facing URL
     // Return both proxied and direct URLs for testing
@@ -311,7 +319,7 @@ exports.listActiveSessions = async (req, res) => {
         const container = docker.getContainer(containerId);
         const data = await container.inspect();
         // Find mapped port for url
-        const portBindings = data.NetworkSettings.Ports['3000/tcp'];
+        const portBindings = data.NetworkSettings.Ports['6900/tcp'];
         const url = portBindings && portBindings[0] && portBindings[0].HostPort ? `http://${PUBLIC_HOST}:${portBindings[0].HostPort}` : undefined;
         info.url = url;
         info.state = data.State.Status;

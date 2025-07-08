@@ -4,6 +4,7 @@ const path = require('path');
 const auth = require('./middlewares/auth');
 const { sign } = require('./utils/jwt');
 const browserRouter = require('./routes/browser');
+const adminRouter = require('./routes/admin');
 const { proxySession, registerSession, unregisterSession, listActiveSessions } = require('./utils/proxySession');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { sessionPortMap } = require('./utils/proxySession');
@@ -51,9 +52,9 @@ app.get('/api/debug/test-proxy/:sessionId', (req, res) => {
 app.get('/api/dev/token', (req, res) => {
   // Example test user payload
   const user = {
-    id: 'devuser',
-    role: 'user',
-    email: 'dev@example.com',
+    id: 'adminuser',
+    role: 'admin',
+    email: 'admin@example.com',
   };
   const token = sign(user);
   res.json({ token });
@@ -70,6 +71,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/browser', browserRouter);
+app.use('/api/admin', adminRouter);
 
 // Proxy session traffic to the correct Chromium container
 app.use('/session/:sessionId', proxySession());

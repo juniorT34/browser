@@ -43,7 +43,7 @@ services:
       - PORT=5000
       - PGID=996
       - JWT_SECRET=${JWT_SECRET}
-      - CHROMIUM_IMAGE=junior039/dispo-chromium:latest
+      - CHROMIUM_IMAGE=kasmweb/chromium:1.15.0-rolling
       - PUBLIC_HOST=albizblog.online
       - REDIS_URL=redis://redis:6379
       - SESSION_TIMEOUT=300
