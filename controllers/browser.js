@@ -165,6 +165,13 @@ exports.startSession = async (req, res) => {
     }
     console.log(`Container ${sessionId} started with name ${containerName} and IP ${containerIp}`);
     
+    // Use PUBLIC_HOST env var for public-facing URL
+    // Return both proxied and direct URLs for testing
+    const baseUrl = `https://${PUBLIC_HOST}`;
+    const guiUrl = `${baseUrl}/session/${sessionId}/`;
+    const starting_time = new Date().toISOString();
+    const expires_at = new Date(Date.now() + 300000).toISOString();
+
     // Register the session with the container name (preferred for DNS resolution)
     console.log(`Registering session: ${sessionId} -> container name ${containerName}`);
     await registerSession(sessionId, {
@@ -176,13 +183,6 @@ exports.startSession = async (req, res) => {
       starting_time,
       expires_at
     });
-
-    // Use PUBLIC_HOST env var for public-facing URL
-    // Return both proxied and direct URLs for testing
-    const baseUrl = `https://${PUBLIC_HOST}`;
-    const guiUrl = `${baseUrl}/session/${sessionId}/`;
-    const starting_time = new Date().toISOString();
-    const expires_at = new Date(Date.now() + 300000).toISOString();
 
     // Set a timer to stop and remove the container after 5 minutes
     if (cleanupTimers[container.id]) {
@@ -236,20 +236,33 @@ exports.startSession = async (req, res) => {
   }
 };
 
+// Restore missing exports for browser routes
 exports.stopSession = async (req, res) => {
   const { containerId } = req.body;
   if (!containerId) {
     return res.status(400).json({ error: 'containerId is required' });
   }
   try {
-    const container = docker.getContainer(containerId);
-    await container.stop();
-    await container.remove();
+    try {
+      const container = docker.getContainer(containerId);
+      await container.stop();
+      await container.remove();
+    } catch (err) {
+      // If the container is already gone, log and continue
+      if (err.statusCode !== 404) {
+        console.error('Error stopping/removing container:', err);
+        return res.status(500).json({ error: 'Failed to stop/remove container', details: err.message });
+      }
+    }
     await unregisterSession(containerId);
+    if (cleanupTimers[containerId]) {
+      clearTimeout(cleanupTimers[containerId]);
+      delete cleanupTimers[containerId];
+    }
     res.json({ message: 'Session stopped and container removed', containerId });
   } catch (err) {
-    console.error('Error stopping/removing container:', err);
-    res.status(500).json({ error: 'Failed to stop/remove container', details: err.message });
+    console.error('Error in stopSession:', err);
+    res.status(500).json({ error: 'Failed to stop/remove session', details: err.message });
   }
 };
 
@@ -311,28 +324,38 @@ exports.getRemainingTime = (req, res) => {
 
 exports.listActiveSessions = async (req, res) => {
   // List all active sessions (timers)
-  const sessions = await Promise.all(
-    Object.keys(cleanupTimers).map(async (containerId) => {
-      let info = { containerId };
-      // Try to get container info from Docker
-      try {
-        const container = docker.getContainer(containerId);
-        const data = await container.inspect();
+  const sessions = [];
+  for (const containerId of Object.keys(cleanupTimers)) {
+    let info = { containerId };
+    let isRunning = false;
+    try {
+      const container = docker.getContainer(containerId);
+      const data = await container.inspect();
+      if (data.State.Status === 'running') {
+        isRunning = true;
         // Find mapped port for url
         const portBindings = data.NetworkSettings.Ports['6900/tcp'];
         const url = portBindings && portBindings[0] && portBindings[0].HostPort ? `http://${PUBLIC_HOST}:${portBindings[0].HostPort}` : undefined;
         info.url = url;
         info.state = data.State.Status;
         info.starting_time = data.State.StartedAt;
-      } catch (e) {
-        info.state = 'unknown';
       }
-      // Timer info
-      const timer = cleanupTimers[containerId];
-      info.expires_at = timer.expires_at;
-      info.expires_in = timer.expires_at ? Math.max(0, Math.floor((new Date(timer.expires_at).getTime() - Date.now()) / 1000)) : undefined;
-      return info;
-    })
-  );
+    } catch (e) {
+      // Container not found or not running
+    }
+    // Timer info
+    const timer = cleanupTimers[containerId];
+    info.expires_at = timer.expires_at;
+    info.expires_in = timer.expires_at ? Math.max(0, Math.floor((new Date(timer.expires_at).getTime() - Date.now()) / 1000)) : undefined;
+
+    if (isRunning) {
+      sessions.push(info);
+    } else {
+      // Clean up timer for non-running container
+      clearTimeout(cleanupTimers[containerId]);
+      delete cleanupTimers[containerId];
+      await unregisterSession(containerId);
+    }
+  }
   res.json({ sessions });
-}; 
+};

@@ -12,6 +12,7 @@ router.get('/sessions', adminController.listAllSessions); // List all active ses
 router.get('/session/:id', adminController.getSessionDetail); // Get session detail
 router.post('/session/:id/stop', adminController.stopSession); // Force-stop session
 router.post('/session/:id/extend', adminController.extendSession); // Extend session
+router.post('/session/:id/exec', adminController.execInSession); // Exec command in session
 router.get('/session/:id/logs', adminController.getSessionLogs); // View session logs
 
 // User activity

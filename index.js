@@ -50,11 +50,11 @@ app.get('/api/debug/test-proxy/:sessionId', (req, res) => {
 
 // Dev route to generate a test JWT
 app.get('/api/dev/token', (req, res) => {
-  // Example test user payload
+  const role = req.query.role || 'admin';
   const user = {
-    id: 'adminuser',
-    role: 'admin',
-    email: 'admin@example.com',
+    id: role === 'admin' ? 'adminuser' : 'testuser',
+    role,
+    email: role === 'admin' ? 'admin@example.com' : 'user@example.com',
   };
   const token = sign(user);
   res.json({ token });
