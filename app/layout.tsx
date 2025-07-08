@@ -2,6 +2,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
+import SessionProviderWrapper from "./SessionProviderWrapper";
 
 export const metadata: Metadata = {
   title: "OUSEC | Secure Disposable Services",
@@ -14,11 +15,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body>
-        <ThemeProvider>{children}
-          <Toaster />
-        </ThemeProvider>
+        <SessionProviderWrapper>
+          <ThemeProvider>
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </SessionProviderWrapper>
       </body>
     </html>
   );

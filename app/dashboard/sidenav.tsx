@@ -30,20 +30,12 @@ export default function SideNav() {
       console.error('Error calling useSession:', e);
     }
   }
-  if (!session) {
-    if (typeof window !== 'undefined') {
-      console.warn('No session found in SideNav. Showing fallback UI.');
-    }
-    return (
-      <div className="flex h-full items-center justify-center text-red-600 font-bold">
-        Login required
-      </div>
-    );
-  }
+  // Remove fallback UI for missing session
   const isAdmin = session?.user?.role === "admin";
 
+  // Only show nav items if session exists
   const navItems = [
-    {
+    session && {
       label: "Sessions",
       href: "/dashboard",
       icon: <Monitor size={20} />,
@@ -58,7 +50,7 @@ export default function SideNav() {
       active: (pathname: string) => pathname.startsWith("/dashboard/admin/logs"),
       disabled: false,
     }] : []),
-    {
+    session && {
       label: "Profile",
       href: "/dashboard/profile",
       icon: <User size={20} />,
@@ -73,7 +65,7 @@ export default function SideNav() {
       active: (pathname: string) => pathname.startsWith("/dashboard/admin/manage"),
       disabled: false,
     }] : []),
-  ];
+  ].filter(Boolean);
 
   return (
     <div
@@ -102,25 +94,28 @@ export default function SideNav() {
       </div>
       {/* Nav Items */}
       <ul className="flex flex-col gap-2">
-        {navItems.map((item) => (
-          <li key={item.label}>
-            {item.disabled ? (
-              <span className={`flex items-center gap-2 font-semibold text-gray-400 cursor-not-allowed opacity-60 ${collapsed ? "justify-center" : ""}`}>{item.icon}{!collapsed && item.label}</span>
-            ) : (
-              <Link
-                href={item.href}
-                className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} font-semibold px-3 py-2 rounded-lg transition-all duration-150
-                  ${item.active(pathname)
-                    ? "bg-orange-600/20 text-orange-700 shadow-inner"
-                    : "hover:bg-orange-600/10 hover:text-orange-700"}
-                `}
-              >
-                {item.icon}
-                {!collapsed && item.label}
-              </Link>
-            )}
-          </li>
-        ))}
+        {navItems.map((item) => {
+          if (!item) return null;
+          return (
+            <li key={item.label}>
+              {item.disabled ? (
+                <span className={`flex items-center gap-2 font-semibold text-gray-400 cursor-not-allowed opacity-60 ${collapsed ? "justify-center" : ""}`}>{item.icon}{!collapsed && item.label}</span>
+              ) : (
+                <Link
+                  href={item.href}
+                  className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} font-semibold px-3 py-2 rounded-lg transition-all duration-150
+                    ${item.active(pathname)
+                      ? "bg-orange-600/20 text-orange-700 shadow-inner"
+                      : "hover:bg-orange-600/10 hover:text-orange-700"}
+                  `}
+                >
+                  {item.icon}
+                  {!collapsed && item.label}
+                </Link>
+              )}
+            </li>
+          );
+        })}
       </ul>
       {/* Spacer */}
       <div className="flex-1" />

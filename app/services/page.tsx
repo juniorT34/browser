@@ -70,9 +70,21 @@ export default function ServicesPage() {
       // Simulate backend call (replace with real API call)
       await new Promise((res) => setTimeout(res, 1800));
       // Example: const res = await fetch('/api/start', ...)
-      // const { url } = await res.json();
+      // try {
+      //   const res = await fetch('/api/start', ...);
+      //   if (!res.ok) throw new Error('Failed to start session');
+      //   const { url } = await res.json();
+      //   window.open(url, '_blank');
+      // } catch (e) {
+      //   console.error('Error starting session:', e);
+      //   toast.error('Failed to start session.');
+      //   return;
+      // }
       const url = 'https://example.com/session'; // Replace with real URL from backend
       window.open(url, '_blank');
+    } catch (e) {
+      console.error('Error in handleStart:', e);
+      toast.error('Failed to start session.');
     } finally {
       setFullPageLoading(false);
     }
