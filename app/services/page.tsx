@@ -21,6 +21,13 @@ import { toast } from "sonner";
 const ICONS = { Globe, Monitor, FileText, Plus };
 const SESSION_DURATION = 5 * 60; // 5 minutes in seconds
 
+const SERVICE_DISPLAY_NAMES: Record<string, string> = {
+  browser: 'Browser',
+  desktop: 'Desktop',
+  'file-viewer': 'File Viewer',
+  future: 'Service',
+};
+
 export default function ServicesPage() {
   // Track state for each service card by key
   const [activeSessions, setActiveSessions] = useState<Record<string, { running: boolean; timeLeft: number }>>({});
@@ -61,18 +68,20 @@ export default function ServicesPage() {
       ...prev,
       [key]: { running: true, timeLeft: SESSION_DURATION },
     }));
+    toast.success(`${SERVICE_DISPLAY_NAMES[key] || 'Service'} session started!`, { style: { color: '#22c55e' } });
   };
   const handleStop = (key: string) => {
     setActiveSessions((prev) => ({
       ...prev,
       [key]: { running: false, timeLeft: 0 },
     }));
+    toast.success(`${SERVICE_DISPLAY_NAMES[key] || 'Service'} session stopped.`, { style: { color: '#22c55e' } });
   };
   const handleExtend = (key: string) => {
     setActiveSessions((prev) => {
       const current = prev[key] || { running: false, timeLeft: 0 };
-      // Only extend if running and time left is less than max
       if (current.running && current.timeLeft < SESSION_DURATION) {
+        toast.success(`${SERVICE_DISPLAY_NAMES[key] || 'Service'} session extended by 5 minutes!`, { style: { color: '#22c55e' } });
         return {
           ...prev,
           [key]: {
@@ -108,7 +117,7 @@ export default function ServicesPage() {
       // });
       // if (!res.ok) throw new Error('Upload failed');
       setUploadSuccess(true);
-      toast.success('File uploaded successfully!');
+      toast.success('File uploaded successfully!', { style: { color: '#22c55e' } });
       setTimeout(() => setFileViewerOpen(false), 1000);
     } catch {
       setUploadError('Failed to upload file.');
