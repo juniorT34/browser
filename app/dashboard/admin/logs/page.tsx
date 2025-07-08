@@ -9,6 +9,29 @@ import React from "react";
 import { addDays, format, parseISO, isAfter, isBefore } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
+interface SessionLog {
+  id: string;
+  user: string;
+  type: string;
+  status: string;
+  timestamp: string;
+  message: string;
+}
+
+interface AuditLog {
+  id: string;
+  user: string;
+  action: string;
+  target: string;
+  timestamp: string;
+  message: string;
+}
+
+interface ExecHistoryEntry {
+  cmd: string;
+  output: string;
+}
+
 const mockSessionLogs = [
   {
     id: "1",
@@ -66,7 +89,7 @@ const PAGE_SIZE = 5;
 
 export default function AdminLogsPage() {
   const [tab, setTab] = useState("sessions");
-  const [sessionLogs, setSessionLogs] = useState(mockSessionLogs);
+  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>(mockSessionLogs);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -130,7 +153,7 @@ export default function AdminLogsPage() {
   const [execLoading, setExecLoading] = useState(false);
 
   // Exec command history
-  const [execHistory, setExecHistory] = useState<{cmd: string, output: string}[]>([]);
+  const [execHistory, setExecHistory] = useState<ExecHistoryEntry[]>([]);
 
   const handleExec = (id: string) => {
     setExecSessionId(id);
@@ -150,7 +173,7 @@ export default function AdminLogsPage() {
 
   const [viewOpen, setViewOpen] = useState(false);
   const [viewSessionId, setViewSessionId] = useState<string | null>(null);
-  const [viewSessionLogs, setViewSessionLogs] = useState<any[]>([]);
+  const [viewSessionLogs, setViewSessionLogs] = useState<SessionLog[]>([]);
 
   const [auditSearch, setAuditSearch] = useState("");
   const [auditAction, setAuditAction] = useState("all");
@@ -160,7 +183,7 @@ export default function AdminLogsPage() {
   const [auditDateTo, setAuditDateTo] = useState("");
 
   // Filter logic for Audit Logs
-  const auditFilteredLogs = mockAuditLogs.filter((log) => {
+  const auditFilteredLogs: AuditLog[] = mockAuditLogs.filter((log) => {
     const matchesSearch =
       log.id.includes(auditSearch) ||
       log.user.toLowerCase().includes(auditSearch.toLowerCase()) ||
@@ -174,7 +197,7 @@ export default function AdminLogsPage() {
     return matchesSearch && matchesAction && matchesUser && matchesDateFrom && matchesDateTo;
   });
   const auditTotalPages = Math.ceil(auditFilteredLogs.length / PAGE_SIZE) || 1;
-  const auditPaginatedLogs = auditFilteredLogs.slice((auditPage - 1) * PAGE_SIZE, auditPage * PAGE_SIZE);
+  const auditPaginatedLogs: AuditLog[] = auditFilteredLogs.slice((auditPage - 1) * PAGE_SIZE, auditPage * PAGE_SIZE);
   React.useEffect(() => { setAuditPage(1); }, [auditSearch, auditAction, auditUser, auditDateFrom, auditDateTo]);
 
   // When session status changes to stopped, clear exec history and close modal if needed

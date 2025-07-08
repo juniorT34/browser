@@ -1,5 +1,6 @@
 "use client";
 import { Globe, Monitor, Timer, Flame } from "lucide-react";
+import React from 'react';
 
 const mockStats = {
   totalSessions: 27,
@@ -7,7 +8,7 @@ const mockStats = {
   mostUsed: "chromium",
 };
 
-const typeIconMap = {
+const typeIconMap: Record<string, React.ReactElement> = {
   chromium: <Globe className="text-orange-500" />,
   ubuntu: <Monitor className="text-orange-500" />,
   kali: <Monitor className="text-orange-500" />,

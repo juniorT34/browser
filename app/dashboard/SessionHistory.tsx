@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Globe, Monitor } from "lucide-react";
+import React from 'react';
 
 const mockHistory = [
   {
@@ -19,7 +20,7 @@ const mockHistory = [
   },
 ];
 
-const typeIconMap = {
+const typeIconMap: Record<string, React.ReactElement> = {
   chromium: <Globe className="text-orange-500" />,
   ubuntu: <Monitor className="text-orange-500" />,
   kali: <Monitor className="text-orange-500" />,
@@ -27,7 +28,7 @@ const typeIconMap = {
   libreoffice: <Monitor className="text-orange-500" />,
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   stopped: "bg-red-100 text-red-700",
   expired: "bg-gray-200 text-gray-500",
   active: "bg-green-100 text-green-700",

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { Trash2, LogOut, Smartphone, UploadCloud } from "lucide-react";
+import Image from "next/image";
 
 const mockUser = {
   name: "Jane Doe",
@@ -58,7 +59,6 @@ export default function ProfilePage() {
       ...user,
       name: form.name,
       email: form.email,
-      password: form.password ? "********" : user.password,
       bio: form.bio,
       phone: form.phone,
       avatarUrl: avatar,
@@ -88,7 +88,7 @@ export default function ProfilePage() {
       <form onSubmit={handleSave} className="flex flex-col md:flex-row gap-10 mb-10">
         <div className="flex flex-col items-center gap-4 md:w-1/3">
           <div className="relative">
-            <img src={avatar} alt="Profile" className="w-28 h-28 rounded-full object-cover border-4 border-orange-200 shadow" />
+            <Image src={avatar} alt="Profile" className="w-28 h-28 rounded-full object-cover border-4 border-orange-200 shadow" width={112} height={112} />
             {editing && (
               <button
                 type="button"
@@ -161,7 +161,6 @@ export default function ProfilePage() {
             <input
               type="password"
               name="password"
-              value={editing ? form.password : user.password}
               onChange={handleChange}
               disabled={!editing}
               placeholder={editing ? "Enter new password" : "********"}

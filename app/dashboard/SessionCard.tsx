@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Globe, Monitor, Timer, StopCircle, PlusCircle, FileText } from "lucide-react";
+import { Globe, Monitor, Timer, StopCircle, PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export type Session = {
