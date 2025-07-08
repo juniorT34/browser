@@ -1,78 +1,21 @@
-"use client";
-
-import { useActionState } from "react";
 import { signup } from "@/app/actions/auth";
+import { Logo } from "@/components/shared/Logo";
+import { SignupForm } from "@/components/shared/SignupForm";
+import Link from "next/link";
 
 export default function RegisterPage() {
-  const [state, formAction, pending] = useActionState(signup, undefined);
-
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50">
-      <form
-        action={formAction}
-        className="w-full max-w-sm p-8 bg-white rounded shadow-md space-y-6"
-        autoComplete="off"
-      >
-        <h1 className="text-2xl font-bold text-center">Register</h1>
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium mb-1">
-            Name
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            autoComplete="name"
-            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
-            required
-            disabled={pending}
-          />
-          {state?.errors?.name && (
-            <p className="text-red-600 text-sm mt-1">{state.errors.name[0]}</p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
-            required
-            disabled={pending}
-          />
-          {state?.errors?.email && (
-            <p className="text-red-600 text-sm mt-1">{state.errors.email[0]}</p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-1">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
-            required
-            disabled={pending}
-          />
-          {state?.errors?.password && (
-            <p className="text-red-600 text-sm mt-1">{state.errors.password[0]}</p>
-          )}
-        </div>
-        <button
-          type="submit"
-          className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          disabled={pending}
-        >
-          {pending ? "Registering..." : "Register"}
-        </button>
-      </form>
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+      <div className="w-full max-w-md bg-white/80 dark:bg-zinc-900/80 rounded-2xl shadow-xl p-8 flex flex-col items-center border border-zinc-200 dark:border-zinc-800">
+        <Logo size={64} />
+        <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-400 mt-4 mb-2 text-center">Create Your OUSEC Account</h1>
+        <p className="mb-6 text-gray-500 dark:text-gray-300 text-center">Sign up for secure, disposable browser & desktop sessions</p>
+        <SignupForm action={signup} />
+        <p className="mt-6 text-sm text-gray-500 dark:text-gray-400 text-center">
+          Already have an account?{' '}
+          <Link href="/login" className="text-orange-600 dark:text-orange-400 hover:underline font-medium">Sign In</Link>
+        </p>
+      </div>
     </main>
   );
 } 
