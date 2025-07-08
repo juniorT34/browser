@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import { Trash2, LogOut, Smartphone, UploadCloud } from "lucide-react";
+import { Trash2, LogOut, Smartphone, UploadCloud, User } from "lucide-react";
 import Image from "next/image";
 
 const mockUser = {
@@ -88,7 +88,10 @@ export default function ProfilePage() {
       <form onSubmit={handleSave} className="flex flex-col md:flex-row gap-10 mb-10">
         <div className="flex flex-col items-center gap-4 md:w-1/3">
           <div className="relative">
-            <Image src={avatar} alt="Profile" className="w-28 h-28 rounded-full object-cover border-4 border-orange-200 shadow" width={112} height={112} />
+            <div className="w-28 h-28 rounded-full bg-orange-100 flex items-center justify-center border-4 border-orange-200 shadow">
+              <User size={64} className="text-orange-400" />
+            </div>
+            {/* Optionally keep the upload button for future avatar support */}
             {editing && (
               <button
                 type="button"
