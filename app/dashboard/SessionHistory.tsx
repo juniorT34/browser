@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Monitor } from "lucide-react";
+import { Globe, Monitor } from "lucide-react";
 
 const mockHistory = [
   {
@@ -20,11 +20,11 @@ const mockHistory = [
 ];
 
 const typeIconMap = {
-  chromium: <Monitor className="text-blue-500" />,
+  chromium: <Globe className="text-blue-500" />,
   ubuntu: <Monitor className="text-orange-500" />,
-  kali: <Monitor className="text-cyan-500" />,
-  fedora: <Monitor className="text-indigo-500" />,
-  libreoffice: <Monitor className="text-green-500" />,
+  kali: <Monitor className="text-orange-500" />,
+  fedora: <Monitor className="text-orange-500" />,
+  libreoffice: <Monitor className="text-orange-500" />,
 };
 
 const statusColors = {
@@ -68,7 +68,7 @@ export default function SessionHistory() {
           <p className="text-lg font-semibold">No session history found</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl shadow-xl bg-white/30 dark:bg-black/30 backdrop-blur-lg border border-orange-200/30">
+        <div className="overflow-x-auto rounded-2xl shadow-xl bg-gradient-to-br from-orange-100/60 to-white dark:from-orange-900/30 dark:to-black/20 border border-orange-200/30">
           <table className="min-w-full divide-y divide-orange-100">
             <thead>
               <tr>
@@ -80,7 +80,7 @@ export default function SessionHistory() {
             </thead>
             <tbody className="divide-y divide-orange-50">
               {filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-orange-50/30 transition-colors">
+                <tr key={s.id} className="hover:bg-orange-50/50 transition-colors duration-150">
                   <td className="px-6 py-4 flex items-center gap-2 font-semibold">
                     {typeIconMap[s.type]}
                     <span className="capitalize">{s.type}</span>
