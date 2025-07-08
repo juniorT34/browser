@@ -1,0 +1,12 @@
+<svg fill="none" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <!-- Shield background -->
+    <path d="M32 6C32 6 12 12 12 26C12 44 32 58 32 58C32 58 52 44 52 26C52 12 32 6 32 6Z" fill="#222"/>
+    <!-- Person: head -->
+    <circle cx="32" cy="28" r="7" fill="#FF6A00" stroke="#fff" stroke-width="2"/>
+    <!-- Person: shoulders/body -->
+    <ellipse cx="32" cy="42" rx="11" ry="7" fill="#FF6A00" stroke="#fff" stroke-width="2"/>
+    <!-- Shield outline -->
+    <path d="M32 6C32 6 12 12 12 26C12 44 32 58 32 58C32 58 52 44 52 26C52 12 32 6 32 6Z" stroke="#fff" stroke-width="2"/>
+  </g>
+</svg> 
