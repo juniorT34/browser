@@ -1,61 +1,85 @@
-// Service cards for the Services page
+// Session duration in seconds
+export const SESSION_DURATION = 300;
+
+// Service display names
+export const SERVICE_DISPLAY_NAMES: Record<string, string> = {
+  chromium: 'Chromium',
+  // ...add other services as needed
+};
+
+// List of services
 export const SERVICES = [
   {
-    key: "browser",
-    icon: "Globe",
-    name: "Disposable Browser",
-    desc: "Launch a secure, isolated browser session for privacy and testing.",
+    key: 'browser',
+    icon: 'Globe',
+    name: 'Disposable Browser',
+    title: 'Disposable Browser',
+    desc: 'Launch a secure, isolated browser session for privacy and testing.',
     enabled: true,
     select: {
-      label: "Browser Type",
+      label: 'Browser Type',
       options: [
-        { value: "chromium", label: "Chromium", enabled: true },
-        { value: "firefox", label: "Firefox", enabled: false },
-        { value: "edge", label: "Edge", enabled: false },
-        { value: "brave", label: "Brave", enabled: false },
+        { value: 'chromium', label: 'Chromium', enabled: true },
+        { value: 'firefox', label: 'Firefox', enabled: false },
+        { value: 'edge', label: 'Edge', enabled: false },
+        { value: 'brave', label: 'Brave', enabled: false },
       ],
-      default: "chromium",
+      default: 'chromium',
     },
-    action: "Start",
+    action: 'Start',
   },
   {
-    key: "desktop",
-    icon: "Monitor",
-    name: "Disposable Desktop",
-    desc: "Access a full Linux desktop in the cloud.",
+    key: 'desktop',
+    icon: 'Monitor',
+    name: 'Disposable Desktop',
+    title: 'Disposable Desktop',
+    desc: 'Access a full Linux desktop in the cloud.',
     enabled: true,
     select: {
-      label: "Linux Flavor",
+      label: 'Linux Flavor',
       options: [
-        { value: "ubuntu", label: "Ubuntu", enabled: true },
-        { value: "debian", label: "Debian", enabled: true },
-        { value: "fedora", label: "Fedora", enabled: true },
-        { value: "arch", label: "Arch", enabled: true },
-        { value: "kali", label: "Kali", enabled: true },
+        { value: 'ubuntu', label: 'Ubuntu', enabled: true },
+        { value: 'debian', label: 'Debian', enabled: true },
+        { value: 'fedora', label: 'Fedora', enabled: true },
+        { value: 'arch', label: 'Arch', enabled: true },
+        { value: 'kali', label: 'Kali', enabled: true },
       ],
-      default: "ubuntu",
+      default: 'ubuntu',
     },
-    action: "Start",
+    action: 'Start',
   },
   {
-    key: "file-viewer",
-    icon: "FileText",
-    name: "File Viewer",
-    desc: "Open and analyze files in a safe, disposable environment.",
+    key: 'file-viewer',
+    icon: 'FileText',
+    name: 'File Viewer',
+    title: 'File Viewer',
+    desc: 'Open and analyze files in a safe, disposable environment.',
     enabled: true,
     select: null,
-    action: "Start",
+    action: 'Start',
   },
   {
-    key: "future",
-    icon: "Plus",
-    name: "More Services",
-    desc: "More disposable services will be added soon (e.g., VS Code, Jupyter, etc.)",
+    key: 'future',
+    icon: 'Plus',
+    name: 'More Services',
+    title: 'More Services',
+    desc: 'More disposable services will be added soon (e.g., VS Code, Jupyter, etc.)',
     enabled: false,
     select: null,
-    action: "Coming Soon",
+    action: 'Coming Soon',
   },
 ];
+
+// Icon mapping
+export const ICONS = {
+  Monitor: require('lucide-react').Monitor,
+  Globe: require('lucide-react').Globe,
+  FileText: require('lucide-react').FileText,
+  Plus: require('lucide-react').Plus,
+  Upload: require('lucide-react').Upload,
+  Loader2: require('lucide-react').Loader2,
+  // ...add other icons as needed
+};
 
 // Features for the FeaturesSection
 export const FEATURES = [

@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import { SERVICES } from '@/lib/constants';
+import type { Service } from '@/type';
 
 export function DownloadExtensionButton() {
   return (

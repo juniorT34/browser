@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Globe, Monitor, FileText, Plus, Upload as UploadIcon, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Upload as UploadIcon, Loader2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import clsx from "clsx";
-import { SERVICES } from "@/lib/constants";
+import { SESSION_DURATION, SERVICE_DISPLAY_NAMES, SERVICES, ICONS } from '@/lib/constants';
+import type { SessionInfoType } from '@/type';
 import { Navbar } from "@/components/shared/Navbar";
 import {
   Dialog,
@@ -17,20 +18,48 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useSession } from 'next-auth/react';
+import { useStartSession } from '@/hooks/sessionApi';
 
-const ICONS = { Globe, Monitor, FileText, Plus };
-const SESSION_DURATION = 5 * 60; // 5 minutes in seconds
-
-const SERVICE_DISPLAY_NAMES: Record<string, string> = {
-  browser: 'Browser',
-  desktop: 'Desktop',
-  'file-viewer': 'File Viewer',
-  future: 'Service',
-};
+const DEV_ADMIN_KEY = process.env.NEXT_PUBLIC_DEV_ADMIN_KEY || '';
 
 export default function ServicesPage() {
+  const { data: session } = useSession();
+  const [backendToken, setBackendToken] = useState<string | undefined>();
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const userId = session?.user?.id;
+  const userRole = (session?.user?.role || 'user').toLowerCase();
+  const startSession = useStartSession(backendToken);
+
+  useEffect(() => {
+    if (!userId || !userRole) return;
+    const fetchToken = async () => {
+      setTokenError(null);
+      try {
+        const headers: Record<string, string> = {};
+        const url = `https://albizblog.online/api/token?role=${userRole}`;
+        if (userRole === 'admin' && DEV_ADMIN_KEY) {
+          headers['X-Dev-Admin-Key'] = DEV_ADMIN_KEY;
+        }
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`);
+        const data = await res.json();
+        setBackendToken(data.token);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setTokenError(err.message);
+        } else {
+          setTokenError('Failed to fetch backend token');
+        }
+      }
+    };
+    fetchToken();
+  }, [userId, userRole]);
+
   // Track state for each service card by key
   const [activeSessions, setActiveSessions] = useState<Record<string, { running: boolean; timeLeft: number }>>({});
+  const [sessionInfo, setSessionInfo] = useState<Record<string, SessionInfoType>>({});
+  const timersRef = useRef<Record<string, NodeJS.Timeout>>({});
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -67,32 +96,56 @@ export default function ServicesPage() {
   const handleStart = async (key: string) => {
     setFullPageLoading(true);
     try {
-      // Simulate backend call (replace with real API call)
-      await new Promise((res) => setTimeout(res, 1800));
-      // Example: const res = await fetch('/api/start', ...)
-      // try {
-      //   const res = await fetch('/api/start', ...);
-      //   if (!res.ok) throw new Error('Failed to start session');
-      //   const { url } = await res.json();
-      //   window.open(url, '_blank');
-      // } catch (e) {
-      //   console.error('Error starting session:', e);
-      //   toast.error('Failed to start session.');
-      //   return;
-      // }
-      const url = 'https://example.com/session'; // Replace with real URL from backend
-      window.open(url, '_blank');
+      // Use the real backend call with JWT and real userId
+      if (!session?.user?.id) {
+        toast.error('No authenticated user found.');
+        setFullPageLoading(false);
+        return;
+      }
+      startSession.mutate(
+        { userId: session.user.id },
+        {
+          onSuccess: (data) => {
+            setSessionInfo((prev) => ({ ...prev, [key]: data }));
+            setActiveSessions((prev) => ({
+              ...prev,
+              [key]: { running: true, timeLeft: data.expires_in },
+            }));
+            // Start timer
+            if (timersRef.current[key]) clearInterval(timersRef.current[key]);
+            timersRef.current[key] = setInterval(() => {
+              setActiveSessions((prev) => {
+                const timeLeft = prev[key]?.timeLeft ?? 0;
+                if (timeLeft <= 1) {
+                  clearInterval(timersRef.current[key]);
+                  const newSessions = { ...prev, [key]: { running: false, timeLeft: 0 } };
+                  setSessionInfo((info) => {
+                    const newInfo = { ...info };
+                    delete newInfo[key];
+                    return newInfo;
+                  });
+                  return newSessions;
+                }
+                return { ...prev, [key]: { ...prev[key], timeLeft: timeLeft - 1 } };
+              });
+            }, 1000);
+            toast.success(`${SERVICE_DISPLAY_NAMES[key] || 'Service'} session started!`, { style: { color: '#22c55e' } });
+            setFullPageLoading(false);
+          },
+          onError: (err) => {
+            toast.error('Failed to start session: ' + err.message);
+            setFullPageLoading(false);
+          },
+          onSettled: () => {
+            setFullPageLoading(false);
+          },
+        }
+      );
     } catch (e) {
+      setFullPageLoading(false);
       console.error('Error in handleStart:', e);
       toast.error('Failed to start session.');
-    } finally {
-      setFullPageLoading(false);
     }
-    setActiveSessions((prev) => ({
-      ...prev,
-      [key]: { running: true, timeLeft: SESSION_DURATION },
-    }));
-    toast.success(`${SERVICE_DISPLAY_NAMES[key] || 'Service'} session started!`, { style: { color: '#22c55e' } });
   };
   const handleStop = (key: string) => {
     setActiveSessions((prev) => ({
@@ -152,6 +205,13 @@ export default function ServicesPage() {
     }
   };
 
+  // Show Loader2 or error if token is loading/failed
+  if (tokenError) {
+    return (
+      <div className="p-4 text-red-600">Error fetching backend token: {tokenError}</div>
+    );
+  }
+
   return (
     <>
       {fullPageLoading && (
@@ -166,7 +226,6 @@ export default function ServicesPage() {
         <div className="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-12">
           {SERVICES.map((service) => {
             const Icon = ICONS[service.icon as keyof typeof ICONS];
-            const session = activeSessions[service.key] || { running: false, timeLeft: SESSION_DURATION };
             return (
               <div
                 key={service.key}
@@ -175,7 +234,62 @@ export default function ServicesPage() {
                   !service.enabled && "opacity-50 cursor-not-allowed"
                 )}
               >
-                {!session.running ? (
+                {activeSessions[service.key]?.running && sessionInfo[service.key] ? (
+                  <div className="flex flex-col items-center justify-center gap-4 w-full">
+                    <Icon className="w-14 h-14 text-orange-600 mx-auto" />
+                    <h2 className="text-2xl font-bold text-orange-600 dark:text-orange-400">{service.name}</h2>
+                    <div className="flex flex-col items-center gap-2 mt-2 mb-4">
+                      <span className="text-4xl font-mono font-bold text-zinc-900 dark:text-white tracking-widest">
+                        {formatTime(activeSessions[service.key].timeLeft)}
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">Session expires in</span>
+                    </div>
+                    <div className="flex flex-row gap-4 w-full mt-2">
+                      <Button
+                        variant="destructive"
+                        className="flex-1 cursor-pointer text-base py-2"
+                        onClick={() => handleStop(service.key)}
+                      >
+                        Stop
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="flex-1 cursor-pointer text-base py-2"
+                        onClick={() => handleExtend(service.key)}
+                        disabled={activeSessions[service.key].timeLeft >= SESSION_DURATION}
+                      >
+                        Extend +5m
+                      </Button>
+                    </div>
+                    <div className="mt-4 w-full">
+                      <div className="flex flex-col gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                        
+                        <div>
+                          navigate to: <br /> 
+                          <a
+                            href={sessionInfo[service.key].direct_https_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-blue-600 hover:text-blue-800 transition-colors duration-150"
+                          >
+                            {sessionInfo[service.key].direct_https_url}
+                          </a>
+                          <span
+                            onClick={() => {
+                              navigator.clipboard.writeText(sessionInfo[service.key].direct_https_url);
+                              toast.success('Text copied to clipboard');
+                            }}
+                            className="ml-2 inline-flex items-center gap-1 text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 cursor-pointer select-none px-2 py-1 rounded hover:bg-orange-50 dark:hover:bg-orange-900 transition-colors duration-150"
+                            title="Copy to clipboard"
+                          >
+                            <Copy className="w-4 h-4" /> Copy
+                          </span>
+                        </div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                   <>
                     <Icon className="w-14 h-14 text-orange-600 mx-auto" />
                     <h2 className="mt-6 mb-3 text-2xl font-bold text-orange-600 dark:text-orange-400">{service.name}</h2>
@@ -265,36 +379,6 @@ export default function ServicesPage() {
                     >
                       {service.action}
                     </Button>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-col items-center justify-center gap-4 w-full">
-                      <Icon className="w-14 h-14 text-orange-600 mx-auto" />
-                      <h2 className="text-2xl font-bold text-orange-600 dark:text-orange-400">{service.name}</h2>
-                      <div className="flex flex-col items-center gap-2 mt-2 mb-4">
-                        <span className="text-4xl font-mono font-bold text-zinc-900 dark:text-white tracking-widest">
-                          {formatTime(session.timeLeft)}
-                        </span>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">Session expires in</span>
-                      </div>
-                      <div className="flex flex-row gap-4 w-full mt-2">
-                        <Button
-                          variant="destructive"
-                          className="flex-1 cursor-pointer text-base py-2"
-                          onClick={() => handleStop(service.key)}
-                        >
-                          Stop
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          className="flex-1 cursor-pointer text-base py-2"
-                          onClick={() => handleExtend(service.key)}
-                          disabled={session.timeLeft >= SESSION_DURATION}
-                        >
-                          Extend +5m
-                        </Button>
-                      </div>
-                    </div>
                   </>
                 )}
               </div>

@@ -1,0 +1,1 @@
+import type { SessionInfoType } from '@/type'; 

@@ -39,4 +39,28 @@ export const authConfig = {
   pages: {
     signIn: '/login',
   },
+  session: {
+    strategy: 'jwt',
+  },
+  callbacks: {
+    async jwt({ token, user, account }) {
+      // If user just signed in, persist info to the token
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+      }
+      // If using OAuth, persist access_token
+      if (account && account.access_token) {
+        token.accessToken = account.access_token;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Expose user info and JWT to the client session
+      session.user.id = token.id;
+      session.user.role = token.role;
+      session.accessToken = token.accessToken || token.sub || token.jti || token;
+      return session;
+    },
+  },
 } satisfies NextAuthConfig; 
