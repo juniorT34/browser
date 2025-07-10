@@ -4,7 +4,7 @@ import { Upload as UploadIcon, Loader2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import clsx from "clsx";
-import { SESSION_DURATION, SERVICE_DISPLAY_NAMES, SERVICES, ICONS } from '@/lib/constants';
+import { SERVICE_DISPLAY_NAMES, SERVICES, ICONS } from '@/lib/constants';
 import type { SessionInfoType } from '@/type';
 import { Navbar } from "@/components/shared/Navbar";
 import {
@@ -20,6 +20,8 @@ import {
 import { toast } from "sonner";
 import { useSession } from 'next-auth/react';
 import { useStartSession } from '@/hooks/sessionApi';
+import { useStopSession } from '@/hooks/sessionApi';
+import { useExtendSession } from '@/hooks/sessionApi';
 
 const DEV_ADMIN_KEY = process.env.NEXT_PUBLIC_DEV_ADMIN_KEY || '';
 
@@ -30,6 +32,8 @@ export default function ServicesPage() {
   const userId = session?.user?.id;
   const userRole = (session?.user?.role || 'user').toLowerCase();
   const startSession = useStartSession(backendToken);
+  const stopSession = useStopSession(backendToken);
+  const extendSession = useExtendSession(backendToken);
 
   useEffect(() => {
     if (!userId || !userRole) return;
@@ -148,27 +152,69 @@ export default function ServicesPage() {
     }
   };
   const handleStop = (key: string) => {
-    setActiveSessions((prev) => ({
-      ...prev,
-      [key]: { running: false, timeLeft: 0 },
-    }));
-    toast.success(`${SERVICE_DISPLAY_NAMES[key] || 'Service'} session stopped.`, { style: { color: '#22c55e' } });
+    if (!sessionInfo[key]?.containerId) {
+      toast.error('No active session to stop.');
+      return;
+    }
+    setFullPageLoading(true); // Show loading overlay
+    stopSession.mutate(
+      { containerId: sessionInfo[key].containerId },
+      {
+        onSuccess: () => {
+          // Clear timer
+          if (timersRef.current[key]) {
+            clearInterval(timersRef.current[key]);
+            delete timersRef.current[key];
+          }
+          setActiveSessions((prev) => ({ ...prev, [key]: { running: false, timeLeft: 0 } }));
+          setSessionInfo((info) => {
+            const newInfo = { ...info };
+            delete newInfo[key];
+            return newInfo;
+          });
+          toast.success('Session stopped and container removed');
+          setFullPageLoading(false); // Hide loading overlay
+        },
+        onError: (_err) => {
+          toast.error('Failed to stop session');
+          setFullPageLoading(false); // Hide loading overlay
+        },
+        onSettled: () => {
+          setFullPageLoading(false); // Hide loading overlay (safety)
+        },
+      }
+    );
   };
   const handleExtend = (key: string) => {
-    setActiveSessions((prev) => {
-      const current = prev[key] || { running: false, timeLeft: 0 };
-      if (current.running && current.timeLeft < SESSION_DURATION) {
-        toast.success(`${SERVICE_DISPLAY_NAMES[key] || 'Service'} session extended by 5 minutes!`, { style: { color: '#22c55e' } });
-        return {
-          ...prev,
-          [key]: {
-            running: true,
-            timeLeft: Math.min(current.timeLeft + 5 * 60, SESSION_DURATION),
-          },
-        };
+    if (!sessionInfo[key]?.containerId) {
+      toast.error('No active session to extend.');
+      return;
+    }
+    // Use 300 seconds (5 minutes) or 500 as needed
+    const duration = 300;
+    extendSession.mutate(
+      { containerId: sessionInfo[key].containerId, duration },
+      {
+        onSuccess: (data) => {
+          // Calculate new timeLeft from expires_at
+          const expiresAt = new Date(data.expires_at).getTime();
+          const now = Date.now();
+          const newTimeLeft = Math.max(0, Math.floor((expiresAt - now) / 1000));
+          setActiveSessions((prev) => ({
+            ...prev,
+            [key]: { running: true, timeLeft: newTimeLeft },
+          }));
+          setSessionInfo((info) => ({
+            ...info,
+            [key]: { ...info[key], ...data },
+          }));
+          toast.success('Session extended!');
+        },
+        onError: (_err) => {
+          toast.error('Failed to extend session');
+        },
       }
-      return prev;
-    });
+    );
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,7 +302,7 @@ export default function ServicesPage() {
                         variant="secondary"
                         className="flex-1 cursor-pointer text-base py-2"
                         onClick={() => handleExtend(service.key)}
-                        disabled={activeSessions[service.key].timeLeft >= SESSION_DURATION}
+                        disabled={extendSession.isPending}
                       >
                         Extend +5m
                       </Button>

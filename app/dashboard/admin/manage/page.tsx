@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { toast } from 'sonner';
 import { Dialog, DialogTrigger, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
-import type { Container, User, DialogState, ContainerForm, UserForm, FormErrors } from '@/type';
+import type { Container, User, DialogState, DialogStateOrNull, ContainerForm, UserForm, FormErrors } from '@/type';
 
 const mockContainers: Container[] = [
   { id: 'c1', name: 'chromium-1', status: 'running', image: 'lscr.io/linuxserver/chromium:latest', createdAt: '2024-07-01' },
@@ -55,7 +55,7 @@ function isUser(obj: unknown): obj is User {
 export default function AdminManagePage() {
   const [containers, setContainers] = useState<Container[]>(mockContainers);
   const [users, setUsers] = useState<User[]>(mockUsers);
-  const [dialog, setDialog] = useState<DialogState>(null);
+  const [dialog, setDialog] = useState<DialogStateOrNull>(null);
   const [editForm, setEditForm] = useState<ContainerForm | UserForm | null>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
