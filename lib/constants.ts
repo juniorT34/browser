@@ -1,3 +1,5 @@
+import { Monitor, Globe, FileText, Plus, Upload, Loader2, Shield } from 'lucide-react';
+
 // Session duration in seconds
 export const SESSION_DURATION = 300;
 
@@ -72,14 +74,15 @@ export const SERVICES = [
 
 // Icon mapping
 export const ICONS = {
-  Monitor: require('lucide-react').Monitor,
-  Globe: require('lucide-react').Globe,
-  FileText: require('lucide-react').FileText,
-  Plus: require('lucide-react').Plus,
-  Upload: require('lucide-react').Upload,
-  Loader2: require('lucide-react').Loader2,
+  Monitor,
+  Globe,
+  FileText,
+  Plus,
+  Upload,
+  Loader2,
+  Shield,
   // ...add other icons as needed
-};
+} as const;
 
 // Features for the FeaturesSection
 export const FEATURES = [

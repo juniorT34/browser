@@ -57,9 +57,16 @@ export const authConfig = {
     },
     async session({ session, token }) {
       // Expose user info and JWT to the client session
-      session.user.id = token.id;
-      session.user.role = token.role;
-      session.accessToken = token.accessToken || token.sub || token.jti || token;
+      session.user.id = typeof token.id === 'string' ? token.id : '';
+      session.user.role = typeof token.role === 'string' ? token.role : '';
+      session.accessToken = 
+        typeof token.accessToken === 'string'
+          ? token.accessToken
+          : typeof token.sub === 'string'
+            ? token.sub
+            : typeof token.jti === 'string'
+              ? token.jti
+              : '';
       return session;
     },
   },

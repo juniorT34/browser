@@ -1,9 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Globe, Monitor, FileText, Shield } from "lucide-react";
-import { SERVICES } from '@/lib/constants';
+import { SERVICES, ICONS } from '@/lib/constants';
 import type { Service } from '@/type';
-
-const ICONS = { Globe, Monitor, FileText, Shield };
 
 export function FeaturesSection() {
   return (
