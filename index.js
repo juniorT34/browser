@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const auth = require('./middlewares/auth');
 const { sign } = require('./utils/jwt');
@@ -12,6 +13,18 @@ require('events').EventEmitter.defaultMaxListeners = 50;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// CORS middleware (allow localhost:3000 for dev)
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://127.0.0.1:3000',
+    'https://albizblog.online',
+  ],
+  credentials: true,
+}));
 
 app.use(express.json());
 
@@ -49,12 +62,19 @@ app.get('/api/debug/test-proxy/:sessionId', (req, res) => {
 });
 
 // Dev route to generate a test JWT
-app.get('/api/dev/token', (req, res) => {
-  const role = req.query.role || 'admin';
+app.get('/api/token', (req, res) => {
+  const requestedRole = req.query.role || 'admin';
+  // For security: only allow admin role if a special header is present (e.g., X-Dev-Admin-Key)
+  if (requestedRole === 'admin') {
+    const devAdminKey = process.env.DEV_ADMIN_KEY ;
+    if (req.headers['x-dev-admin-key'] !== devAdminKey) {
+      return res.status(403).json({ error: 'Forbidden: admin token requires X-Dev-Admin-Key' });
+    }
+  }
   const user = {
-    id: role === 'admin' ? 'adminuser' : 'testuser',
-    role,
-    email: role === 'admin' ? 'admin@example.com' : 'user@example.com',
+    id: requestedRole === 'admin' ? 'adminuser' : 'testuser',
+    role: requestedRole,
+    email: requestedRole === 'admin' ? 'admin@example.com' : 'user@example.com',
   };
   const token = sign(user);
   res.json({ token });

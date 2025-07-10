@@ -275,40 +275,55 @@ exports.stopSession = async (req, res) => {
   }
 };
 
-exports.extendSession = (req, res) => {
+exports.extendSession = async (req, res) => {
   const { containerId, duration } = req.body;
   if (!containerId) {
     return res.status(400).json({ error: 'containerId is required' });
   }
-  // Check if a cleanup timer exists for this container
-  const timer = cleanupTimers[containerId];
-  if (!timer) {
-    return res.status(404).json({ error: 'No active session found for this containerId' });
-  }
-  // Use custom duration if provided, otherwise default to 5 minutes (300 seconds)
-  const extendMs = (typeof duration === 'number' && duration > 0 ? duration : 300) * 1000;
-  // Calculate the new expires_at by adding to the previous expires_at
-  const prevExpiresAt = timer.expires_at ? new Date(timer.expires_at).getTime() : Date.now();
-  const newExpiresAt = new Date(prevExpiresAt + extendMs).toISOString();
-  // Reset the timer for the new total duration
-  clearTimeout(cleanupTimers[containerId]);
-  const msUntilNewExpires = new Date(newExpiresAt).getTime() - Date.now();
-  const newTimer = setTimeout(async () => {
-    try {
-      const c = docker.getContainer(containerId);
-      await c.stop().catch(() => {});
-      await c.remove().catch(() => {});
-      console.log(`Chromium container ${containerId} stopped and removed after extension.`);
-    } catch (cleanupErr) {
-      if (!cleanupErr.statusCode || cleanupErr.statusCode !== 404) {
-        console.error(`Failed to clean up container ${containerId}:`, cleanupErr);
-      }
+  
+  try {
+    // Check if a cleanup timer exists for this container
+    const timer = cleanupTimers[containerId];
+    if (!timer) {
+      return res.status(404).json({ error: 'No active session found for this containerId' });
     }
-    delete cleanupTimers[containerId];
-  }, msUntilNewExpires);
-  newTimer.expires_at = newExpiresAt;
-  cleanupTimers[containerId] = newTimer;
-  res.json({ message: `Session extended by ${extendMs / 1000} seconds`, containerId, expires_at: newExpiresAt });
+    
+    // Use custom duration if provided, otherwise default to 5 minutes (300 seconds)
+    const extendMs = (typeof duration === 'number' && duration > 0 ? duration : 300) * 1000;
+    
+    // Calculate the new expires_at by adding to the previous expires_at
+    const prevExpiresAt = timer.expires_at ? new Date(timer.expires_at).getTime() : Date.now();
+    const newExpiresAt = new Date(prevExpiresAt + extendMs).toISOString();
+    
+    // Update Redis session data
+    const { updateSession } = require('../services/redis');
+    await updateSession(containerId, { expires_at: newExpiresAt });
+    
+    // Reset the timer for the new total duration
+    clearTimeout(cleanupTimers[containerId]);
+    const msUntilNewExpires = new Date(newExpiresAt).getTime() - Date.now();
+    const newTimer = setTimeout(async () => {
+      try {
+        const c = docker.getContainer(containerId);
+        await c.stop().catch(() => {});
+        await c.remove().catch(() => {});
+        console.log(`Chromium container ${containerId} stopped and removed after extension.`);
+      } catch (cleanupErr) {
+        if (!cleanupErr.statusCode || cleanupErr.statusCode !== 404) {
+          console.error(`Failed to clean up container ${containerId}:`, cleanupErr);
+        }
+      }
+      delete cleanupTimers[containerId];
+    }, msUntilNewExpires);
+    newTimer.expires_at = newExpiresAt;
+    cleanupTimers[containerId] = newTimer;
+    
+    console.log(`Session ${containerId} extended by ${extendMs / 1000} seconds. New expiration: ${newExpiresAt}`);
+    res.json({ message: `Session extended by ${extendMs / 1000} seconds`, containerId, expires_at: newExpiresAt });
+  } catch (err) {
+    console.error('Error extending session:', err);
+    res.status(500).json({ error: 'Failed to extend session', details: err.message });
+  }
 };
 
 exports.getRemainingTime = (req, res) => {
